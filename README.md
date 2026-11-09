@@ -1,18 +1,18 @@
 # RustLOB
 
-RustLOB is a Rust implementation of the ONNX Runtime foundation for DeepLOB and TransformerLOB.
+RustLOB is a Rust implementation of the ONNX Runtime foundation and preprocessing pipeline for DeepLOB and TransformerLOB.
 
-Phase 1 provides configuration, CPU runtime initialization, reusable model sessions, model metadata inspection, and command-line diagnostics. Preprocessing, inference workflows, benchmarking, and CSV evaluation are outside this phase.
+Phase 1 provides CPU runtime initialization, reusable model sessions, metadata inspection, and CLI diagnostics. Phase 2 loads segmented FI-2010-style CSV data, maps features and labels, applies supplied training normalization statistics, extracts non-overlapping windows, and constructs contiguous inference tensors. Phases 3 and 4 will execute ONNX inference; Phase 2 does not run a model.
 
 ## Requirements
 
 - Stable Rust 1.92 or later (required by `ort` 2.0.0-rc.15)
-- ONNX model files supplied separately in `models/`
+- ONNX model files supplied separately in `models/` for Phase 1 model inspection
 - Xcode Command Line Tools on macOS; the bundled ONNX Runtime archive requires a macOS 13.4 deployment target
 
-`ort` is pinned to `2.0.0-rc.15`, which wraps ONNX Runtime 1.31. The configured `download-binaries` feature provides the runtime without a separately installed system package; unused `ndarray` support is disabled. See the [ort crate documentation](https://docs.rs/ort/2.0.0-rc.15/ort/) and its [environment API](https://docs.rs/ort/2.0.0-rc.15/ort/environment/index.html).
+`ort` is pinned to `2.0.0-rc.15`, which wraps ONNX Runtime 1.31. The configured `download-binaries` feature provides the runtime without a separately installed system package. NPY normalization arrays are read with `npyz`; CSV data is read with `csv`. See the [ort crate docs](https://docs.rs/ort/2.0.0-rc.15/ort/), [npyz docs](https://docs.rs/npyz/0.9.1/npyz/), and [csv docs](https://docs.rs/csv/1.4.0/csv/).
 
-## Commands
+## Phase 1 commands
 
 ```sh
 cargo run -- --help
@@ -21,18 +21,24 @@ cargo run -- inspect --model deeplob
 cargo run -- validate --model transformerlob
 ```
 
-Use a custom configuration by passing `--config` before or after the command:
+## Phase 2 preprocessing
+
+The pipeline API is available from `PreprocessingPipeline`; the example reports prepared rows, windows, and tensor shape without running inference:
 
 ```sh
-cargo run -- --config configs/custom.toml runtime-info
+cargo run --example preprocessing_demo
 ```
 
-The default configuration expects `models/deeplob.onnx` and `models/transformerlob.onnx`. Model paths are interpreted relative to the current working directory. Inspection and validation exit with an error when a model is missing or its metadata does not match the configured input/output specifications.
+Before using real data, inspect its format and update `configs/default.toml`. The current mapping (`feature_columns = 0..39`, `label_column = 144`, no header) is a candidate copied from the Phase 2 specification, not a verified property of any supplied dataset. The default `schema_verified = false` makes the pipeline refuse to start until the mapping has been checked. Set it to `true` only after confirming the actual file layout.
 
-## Phase 1 implementation status
+The expected normalization inputs are one-dimensional, C-order NPY vectors of length 40 at `data/normalization/mu.npy` and `sigma.npy`. The application only loads these values; it never computes or substitutes statistics. These files are not present in the repository.
 
-The Cargo package, configuration validation, structured logging, CPU runtime, model registry, session loading, metadata inspection, and CLI diagnostics are implemented. Unit and integration tests cover configuration, runtime initialization, registry behavior, invalid model files, and metadata validation.
+A single CSV file can be given as `dataset_path`. For several instrument/day files, list them in `segment_paths` in chronological order. Each file remains a separate segment, so windows cannot cross file boundaries. If `dataset_path` names a directory containing multiple CSVs, the loader requires an explicit `segment_paths` list instead of guessing chronological order. Blank physical rows, malformed records, inconsistent field counts, invalid selected values, and invalid labels are rejected.
 
-The research ONNX models are not included in this repository. Their real input/output metadata and successful DeepLOB/TransformerLOB session loading must be checked after the model files are provided. No inference or performance results are claimed.
+The pipeline retains normalized segment data and compact window references. It allocates a contiguous 4,000-value `f32` buffer only when a window is requested, with shape `[1, 1, 100, 40]`. `InputTensor::into_ort_tensor` transfers that owned buffer into an ONNX Runtime tensor; it does not execute a model.
 
-See [`context/context.md`](context/context.md) for the overall project specification and [`context/phase-01.md`](context/phase-01.md) for detailed Phase 1 requirements.
+## Phase 2 limitations
+
+No FI-2010 CSV files, `mu.npy`, `sigma.npy`, or ONNX models are included. Synthetic fixtures verify the implementation path, but cannot verify the real dataset's headers, label location, segment ordering, separate-label-file format, training partition provenance, or model metadata. No real-data compatibility or performance claim is made.
+
+See [`context/context.md`](context/context.md), [`context/phase-01.md`](context/phase-01.md), and [`context/phase-02.md`](context/phase-02.md) for the project and phase specifications.
