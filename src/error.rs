@@ -37,4 +37,79 @@ pub enum AppError {
     MetadataValidation { model: ModelType, details: String },
     #[error("could not initialize logging: {0}")]
     Logging(String),
+    #[error("could not open dataset CSV '{path}': {source}")]
+    CsvOpen {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+    #[error("malformed CSV record in '{path}' at row {row}: {source}")]
+    CsvRecord {
+        path: PathBuf,
+        row: usize,
+        #[source]
+        source: csv::Error,
+    },
+    #[error("dataset path '{path}' is not a file or directory")]
+    InvalidDatasetPath { path: PathBuf },
+    #[error("no CSV segments found at '{0}'")]
+    NoCsvSegments(PathBuf),
+    #[error(
+        "multiple CSV files were found under '{0}'; list data.segment_paths in chronological order"
+    )]
+    SegmentOrderRequired(PathBuf),
+    #[error("blank CSV row in '{path}' at physical row {row}")]
+    CsvBlankRow { path: PathBuf, row: usize },
+    #[error("could not scan dataset CSV '{path}': {source}")]
+    CsvScan {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("dataset segment '{path}' is empty")]
+    EmptyDatasetSegment { path: PathBuf },
+    #[error("CSV row {row} in '{path}' has {found} columns; expected {expected}")]
+    CsvColumnCount {
+        path: PathBuf,
+        row: usize,
+        expected: usize,
+        found: usize,
+    },
+    #[error("invalid numeric value in '{path}' row {row}, column {column}: '{value}'")]
+    CsvNumericValue {
+        path: PathBuf,
+        row: usize,
+        column: usize,
+        value: String,
+    },
+    #[error("invalid FI-2010 label in '{path}' row {row}: '{value}' (expected 1, 2, or 3)")]
+    CsvLabel {
+        path: PathBuf,
+        row: usize,
+        value: String,
+    },
+    #[error("could not enumerate dataset directory '{path}': {source}")]
+    DatasetDirectory {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("could not read normalization file '{path}': {source}")]
+    NormalizationRead {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("invalid NPY normalization file '{path}': {details}")]
+    NormalizationNpy { path: PathBuf, details: String },
+    #[error("invalid normalization values in '{path}': {details}")]
+    NormalizationValues { path: PathBuf, details: String },
+    #[error("invalid dataset segment '{path}': {details}")]
+    DatasetInvariant { path: PathBuf, details: String },
+    #[error("invalid window configuration: {0}")]
+    WindowConfiguration(String),
+    #[error("invalid window reference: {0}")]
+    WindowReference(String),
+    #[error("invalid input tensor: {0}")]
+    TensorValidation(String),
 }
