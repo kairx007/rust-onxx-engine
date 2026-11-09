@@ -2,5 +2,23 @@
 name = "rust-engine"
 version = "0.1.0"
 edition = "2024"
+description = "Rust ONNX Runtime foundation for DeepLOB and TransformerLOB"
+license = "MIT"
 
 [dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "tracing", "download-binaries", "tls-native", "api-31"] }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+toml = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+[lints.rust]
+unsafe_code = "forbid"
