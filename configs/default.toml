@@ -16,5 +16,30 @@ time_steps = 100
 features = 40
 output_classes = 3
 
+[data]
+dataset_path = "data/raw"
+segment_paths = []
+# Candidate FI-2010 mapping; inspect the actual files, then set schema_verified = true.
+feature_columns = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]
+label_column = 144
+has_headers = false
+schema_verified = false
+
+[preprocessing]
+sequence_length = 100
+stride = 100
+epsilon = 0.00000001
+
+[normalization]
+mean_path = "data/normalization/mu.npy"
+std_path = "data/normalization/sigma.npy"
+
+[tensor]
+batch_size = 1
+channels = 1
+time_steps = 100
+features = 40
+dtype = "float32"
+
 [logging]
 level = "info"

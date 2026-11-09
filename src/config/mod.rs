@@ -1,5 +1,6 @@
 mod settings;
 
 pub use settings::{
-    ApplicationSettings, LoggingSettings, ModelPaths, ModelSpecs, RuntimeSettings, Settings,
+    ApplicationSettings, DataSettings, LoggingSettings, ModelPaths, ModelSpecs,
+    NormalizationSettings, PreprocessingSettings, RuntimeSettings, Settings, TensorSettings,
 };
