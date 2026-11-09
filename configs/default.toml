@@ -1,0 +1,20 @@
+[application]
+name = "RustLOB"
+environment = "development"
+
+[runtime]
+execution_provider = "cpu"
+
+[models]
+deeplob_path = "models/deeplob.onnx"
+transformerlob_path = "models/transformerlob.onnx"
+
+[model_specs]
+batch_size = 1
+channels = 1
+time_steps = 100
+features = 40
+output_classes = 3
+
+[logging]
+level = "info"
