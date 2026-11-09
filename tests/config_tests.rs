@@ -70,3 +70,9 @@ fn loads_configuration_from_a_file() {
     fs::remove_file(path).expect("test config should be removable");
     assert_eq!(settings.logging.level, "info");
 }
+
+#[test]
+fn default_data_column_mapping_is_unverified() {
+    let settings = Settings::parse(DEFAULT_CONFIG).expect("default config should parse");
+    assert!(!settings.data.schema_verified);
+}
