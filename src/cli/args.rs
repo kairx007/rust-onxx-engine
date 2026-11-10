@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 use crate::models::ModelType;
 
@@ -65,19 +65,66 @@ pub enum Command {
         #[arg(long)]
         model_path: Option<PathBuf>,
     },
-    /// Run a simple repeated-inference timing loop over prepared dataset windows.
+    /// Run a reproducible inference, preprocessing, load, or end-to-end benchmark.
     Benchmark {
         #[arg(long, value_enum)]
         model: ModelType,
         #[command(flatten)]
         input: InputArgs,
-        /// Number of inference calls, repeating the first prepared window.
-        #[arg(long, default_value_t = 100, value_parser = parse_positive_usize)]
+        /// Number of inference calls per trial.
+        #[arg(long, default_value_t = 200, value_parser = parse_positive_usize)]
         iterations: usize,
+        /// Number of warm-up inference calls, excluded from measurements.
+        #[arg(long, default_value_t = 20)]
+        warmup: usize,
+        /// Number of independent measurement trials.
+        #[arg(long, default_value_t = 5, value_parser = parse_positive_usize)]
+        trials: usize,
+        /// Measurement path.
+        #[arg(long, value_enum, default_value_t = BenchmarkMode::Inference)]
+        mode: BenchmarkMode,
+        /// Sample process RSS concurrently with the benchmark.
+        #[arg(long)]
+        profile_memory: bool,
+        /// Sample CPU utilization concurrently (when supported).
+        #[arg(long)]
+        profile_cpu: bool,
+        /// Write a machine-readable report. Existing files are never replaced.
+        #[arg(long)]
+        output: Option<PathBuf>,
+        /// Report file format; defaults to the output file extension.
+        #[arg(long, value_enum)]
+        format: Option<BenchmarkFormat>,
         /// Override the configured ONNX model path for this command.
         #[arg(long)]
         model_path: Option<PathBuf>,
     },
+    /// Compare two compatible JSON benchmark reports.
+    Compare {
+        #[arg(long, value_enum)]
+        model: ModelType,
+        #[arg(long)]
+        rust_results: PathBuf,
+        #[arg(long)]
+        cpp_results: PathBuf,
+        /// Optional JSON output path; existing files are never replaced.
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum BenchmarkMode {
+    Inference,
+    Preprocessing,
+    EndToEnd,
+    Load,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum BenchmarkFormat {
+    Json,
+    Csv,
 }
 
 fn parse_positive_usize(value: &str) -> Result<usize, String> {
@@ -133,6 +180,39 @@ mod tests {
                 "deeplob",
                 "--output",
                 "out.csv"
+            ])
+            .is_ok()
+        );
+        assert!(
+            Cli::try_parse_from([
+                "lob-inference",
+                "benchmark",
+                "--model",
+                "deeplob",
+                "--warmup",
+                "10",
+                "--iterations",
+                "50",
+                "--trials",
+                "2",
+                "--mode",
+                "inference",
+                "--profile-memory",
+                "--output",
+                "run.json"
+            ])
+            .is_ok()
+        );
+        assert!(
+            Cli::try_parse_from([
+                "lob-inference",
+                "compare",
+                "--model",
+                "deeplob",
+                "--rust-results",
+                "rust.json",
+                "--cpp-results",
+                "cpp.json"
             ])
             .is_ok()
         );

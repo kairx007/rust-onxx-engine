@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 use crate::{
     config::Settings,
@@ -37,11 +38,37 @@ impl PreprocessingPipeline {
     }
 
     pub fn prepare(&self) -> Result<PreparedDataset, AppError> {
-        let mut dataset = CsvLoader::new(self.data_settings.clone()).load()?;
-        self.normalizer.normalize(&mut dataset)?;
-        let windows = WindowExtractor::extract(&dataset, self.window_config)?;
-        Ok(PreparedDataset { dataset, windows })
+        self.prepare_with_timings().map(|(prepared, _)| prepared)
     }
+
+    pub fn prepare_with_timings(
+        &self,
+    ) -> Result<(PreparedDataset, PreprocessingTimings), AppError> {
+        let start = Instant::now();
+        let mut dataset = CsvLoader::new(self.data_settings.clone()).load()?;
+        let csv_loading = start.elapsed();
+        let start = Instant::now();
+        self.normalizer.normalize(&mut dataset)?;
+        let normalization = start.elapsed();
+        let start = Instant::now();
+        let windows = WindowExtractor::extract(&dataset, self.window_config)?;
+        let window_generation = start.elapsed();
+        Ok((
+            PreparedDataset { dataset, windows },
+            PreprocessingTimings {
+                csv_loading,
+                normalization,
+                window_generation,
+            },
+        ))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PreprocessingTimings {
+    pub csv_loading: Duration,
+    pub normalization: Duration,
+    pub window_generation: Duration,
 }
 
 #[derive(Debug, Clone)]

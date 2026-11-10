@@ -84,12 +84,18 @@ lob-inference predict --model transformerlob --segment data/day-1.csv --segment 
 
 The prediction CSV schema is `window_index,source_file,segment_index,start_row,true_class,predicted_class,predicted_direction,down_score,stationary_score,up_score`. Classes use the existing internal mapping 0=Down, 1=Stationary, 2=Up. Output is written to a temporary file and published only after all windows succeed. Existing output is preserved unless `--overwrite` is supplied.
 
-Run the basic timing command on prepared input data:
+Run reproducible benchmarks on prepared input data:
 
 ```sh
-lob-inference benchmark --model deeplob --input data/sample.csv --iterations 100
+lob-inference benchmark --model deeplob --warmup 20 --iterations 200 --trials 5 --input data/sample.csv --output results/deeplob.json
+lob-inference benchmark --model transformerlob --mode inference --profile-memory --profile-cpu --output results/transformerlob.csv
+lob-inference benchmark --model deeplob --mode preprocessing --output results/preprocessing.json
+lob-inference benchmark --model deeplob --mode end-to-end --output results/end-to-end.json
+lob-inference compare --model deeplob --rust-results results/deeplob.json --cpp-results results/deeplob-cpp.json
 ```
 
-It loads the model once, prepares one valid tensor, then repeats inference on that tensor. It reports model-load time separately from inference time; it is a basic command-level measurement, not the Phase 6 benchmark suite.
+Inference mode excludes model loading and preprocessing from per-call latency, performs warm-up, and reports raw samples, latency percentiles, dispersion, and throughput over independent trials. Preprocessing reports CSV/feature loading, normalization, window generation, and tensor construction separately. Reports can be JSON or CSV; an existing report path is never overwritten. See [Phase 6 benchmark methodology](docs/phase-06-implementation.md) for modes, resource-sampling limits, and comparison requirements.
+
+The C++ comparison command consumes a compatible JSON report; the C++ engine is not in this repository, so its benchmark must be run separately under matching conditions. No model files, FI-2010 CSVs, or normalization arrays are currently present. Real DeepLOB/TransformerLOB benchmark runs therefore require those assets. Dataset workflows also require verifying the configured columns and setting `data.schema_verified = true` after inspection.
 
 The repository currently has no ONNX models, FI-2010 CSVs, or normalization arrays. Real model validation, smoke inference, CSV predictions, and benchmark execution require those assets. Dataset workflows also require verifying the configured columns and setting `data.schema_verified = true` after inspection. Synthetic smoke input does not establish model compatibility or data accuracy.

@@ -5,7 +5,7 @@ use crate::{
         inspect_model as inspect_model_service, run_benchmark, run_prediction, run_smoke_test,
         runtime_info,
     },
-    cli::args::{Cli, Command, InputArgs},
+    cli::{BenchmarkFormat, Cli, Command, InputArgs},
     config::Settings,
     error::AppError,
     inference::Prediction,
@@ -91,32 +91,172 @@ impl Cli {
                 model,
                 input,
                 iterations,
+                warmup,
+                trials,
+                mode,
+                profile_memory,
+                profile_cpu,
+                output,
+                format,
                 model_path,
             } => {
                 let settings = apply_input_args(settings, &input)?;
-                let summary = run_benchmark(&settings, model, model_path.as_deref(), iterations)?;
+                let report_format = format
+                    .map(|value| match value {
+                        BenchmarkFormat::Json => crate::benchmark::ReportFormat::Json,
+                        BenchmarkFormat::Csv => crate::benchmark::ReportFormat::Csv,
+                    })
+                    .or_else(|| {
+                        output
+                            .as_ref()
+                            .and_then(|path| path.extension())
+                            .and_then(|extension| extension.to_str())
+                            .map(|extension| {
+                                if extension.eq_ignore_ascii_case("csv") {
+                                    crate::benchmark::ReportFormat::Csv
+                                } else {
+                                    crate::benchmark::ReportFormat::Json
+                                }
+                            })
+                    });
+                if format.is_some() && output.is_none() {
+                    return Err(AppError::ConfigValidation(
+                        "--format requires --output".to_owned(),
+                    )
+                    .into());
+                }
+                let report = output.as_deref().zip(report_format);
+                let summary = run_benchmark(
+                    &settings,
+                    model,
+                    model_path.as_deref(),
+                    crate::application::BenchmarkOptions {
+                        iterations,
+                        warmup,
+                        trial_count: trials,
+                        mode,
+                        profile_memory,
+                        profile_cpu,
+                        report,
+                    },
+                )?;
                 println!("Benchmark Summary");
                 println!("Model: {}", summary.model);
+                println!("Mode: {:?}", mode);
                 println!("Execution Provider: CPU");
                 println!("Input: {}", summary.input);
                 println!("Windows available: {}", summary.windows_available);
                 println!("Iterations: {}", summary.iterations);
+                println!("Warm-up iterations: {}", summary.warmup_iterations);
+                println!("Trials: {}", summary.trials.len());
+                println!(
+                    "Runtime initialization time: {:.6}s",
+                    summary.runtime_init_time.as_secs_f64()
+                );
                 println!(
                     "Model loading time: {:.6}s",
                     summary.model_load_time.as_secs_f64()
                 );
                 println!(
-                    "Inference elapsed time: {:.6}s",
+                    "Measured elapsed time: {:.6}s",
                     summary.inference_time.as_secs_f64()
                 );
                 println!(
                     "Average latency: {:.6}ms",
                     summary.average_latency.as_secs_f64() * 1_000.0
                 );
+                println!("Throughput: {:.2} windows/s", summary.throughput_per_second);
+                if let Some(stats) = &summary.aggregate {
+                    println!("Latency samples: {}", stats.sample_count);
+                    println!("Mean latency: {:.6}ms", stats.mean_ms);
+                    println!("Std deviation: {:.6}ms", stats.standard_deviation_ms);
+                    println!(
+                        "P50/P90/P95/P99: {:.6}/{:.6}/{:.6}/{:.6}ms",
+                        stats.p50_ms, stats.p90_ms, stats.p95_ms, stats.p99_ms
+                    );
+                    println!("Min/Max: {:.6}/{:.6}ms", stats.minimum_ms, stats.maximum_ms);
+                }
+                if let Some(resources) = &summary.resource_metrics {
+                    println!(
+                        "Process RSS baseline/average/peak: {:?}/{:?}/{:?} bytes",
+                        resources.baseline_rss_bytes,
+                        resources.average_rss_bytes,
+                        resources.peak_rss_bytes
+                    );
+                    println!(
+                        "CPU average/peak: {:?}/{:?}%",
+                        resources.average_cpu_percent, resources.peak_cpu_percent
+                    );
+                    println!("Resource method: {}", resources.method);
+                }
+                if let Some(stages) = summary
+                    .trials
+                    .last()
+                    .and_then(|trial| trial.preprocessing_stages.as_ref())
+                {
+                    println!(
+                        "Preprocessing stages, last trial: CSV {:.3}ms, normalization {:.3}ms, windows {:.3}ms, tensors {:.3}ms",
+                        stages.csv_loading_ms,
+                        stages.normalization_ms,
+                        stages.window_generation_ms,
+                        stages.tensor_construction_ms
+                    );
+                }
+                if let Some(path) = &summary.report_path {
+                    println!("Report: {}", path.display());
+                }
+                Ok(())
+            }
+            Command::Compare {
+                model,
+                rust_results,
+                cpp_results,
+                output,
+            } => {
+                let comparison =
+                    crate::benchmark::compare_json_reports(model, &rust_results, &cpp_results)?;
+                println!("Rust vs C++ comparison ({})", comparison.model);
                 println!(
-                    "Throughput: {:.2} predictions/s",
-                    summary.throughput_per_second
+                    "Mean latency, Rust/C++: {:.6}/{:.6}ms",
+                    comparison.rust_mean_latency_ms, comparison.cpp_mean_latency_ms
                 );
+                println!(
+                    "P50 latency, Rust/C++: {:.6}/{:.6}ms",
+                    comparison.rust_p50_latency_ms, comparison.cpp_p50_latency_ms
+                );
+                println!(
+                    "P95 latency, Rust/C++: {:.6}/{:.6}ms",
+                    comparison.rust_p95_latency_ms, comparison.cpp_p95_latency_ms
+                );
+                println!(
+                    "P99 latency, Rust/C++: {:.6}/{:.6}ms",
+                    comparison.rust_p99_latency_ms, comparison.cpp_p99_latency_ms
+                );
+                println!(
+                    "Latency improvement: {:.2}%",
+                    comparison.latency_improvement_percent
+                );
+                println!(
+                    "Throughput, Rust/C++: {:.2}/{:.2} windows/s",
+                    comparison.rust_throughput_per_second, comparison.cpp_throughput_per_second
+                );
+                println!(
+                    "Throughput ratio (Rust/C++): {:.3}x",
+                    comparison.throughput_ratio
+                );
+                if let Some(path) = output {
+                    let file = std::fs::OpenOptions::new()
+                        .write(true)
+                        .create_new(true)
+                        .open(&path)
+                        .map_err(|source| AppError::BenchmarkReport {
+                            path: path.clone(),
+                            source,
+                        })?;
+                    serde_json::to_writer_pretty(file, &comparison)
+                        .map_err(|error| AppError::BenchmarkSerialization(error.to_string()))?;
+                    println!("Comparison report: {}", path.display());
+                }
                 Ok(())
             }
         }

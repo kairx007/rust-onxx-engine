@@ -156,4 +156,12 @@ pub enum AppError {
         #[source]
         source: std::io::Error,
     },
+    #[error("could not write benchmark report '{path}': {source}")]
+    BenchmarkReport {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("could not serialize benchmark report: {0}")]
+    BenchmarkSerialization(String),
 }
