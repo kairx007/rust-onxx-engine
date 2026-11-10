@@ -130,4 +130,30 @@ pub enum AppError {
     InvalidInferenceOutput(String),
     #[error("could not construct prediction: {0}")]
     Prediction(String),
+    #[error("prediction output already exists: {0} (pass --overwrite to replace it)")]
+    OutputExists(PathBuf),
+    #[error("could not create prediction output '{path}': {source}")]
+    OutputCreate {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("could not write prediction output '{path}': {source}")]
+    OutputWrite {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("could not serialize prediction CSV '{path}': {source}")]
+    OutputCsv {
+        path: PathBuf,
+        #[source]
+        source: csv::Error,
+    },
+    #[error("could not publish prediction output '{path}': {source}")]
+    OutputPublish {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
 }

@@ -75,4 +75,28 @@ fn loads_configuration_from_a_file() {
 fn default_data_column_mapping_is_unverified() {
     let settings = Settings::parse(DEFAULT_CONFIG).expect("default config should parse");
     assert!(!settings.data.schema_verified);
+    assert_eq!(
+        settings.data.output_path.as_deref(),
+        Some(std::path::Path::new("outputs/predictions.csv"))
+    );
+}
+
+#[test]
+fn older_configs_without_cli_output_setting_remain_compatible() {
+    let older = DEFAULT_CONFIG.replace("output_path = \"outputs/predictions.csv\"\n", "");
+    let settings =
+        Settings::parse(&older).expect("older config should use optional output default");
+    assert_eq!(settings.data.output_path, None);
+}
+
+#[test]
+fn rejects_an_empty_configured_output_path() {
+    let invalid = DEFAULT_CONFIG.replace(
+        "output_path = \"outputs/predictions.csv\"",
+        "output_path = \"\"",
+    );
+    assert!(matches!(
+        Settings::parse(&invalid),
+        Err(AppError::ConfigValidation(_))
+    ));
 }

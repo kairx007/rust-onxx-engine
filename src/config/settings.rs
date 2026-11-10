@@ -76,6 +76,8 @@ impl ModelSpecs {
 pub struct DataSettings {
     pub dataset_path: PathBuf,
     #[serde(default)]
+    pub output_path: Option<PathBuf>,
+    #[serde(default)]
     pub segment_paths: Vec<PathBuf>,
     pub feature_columns: Vec<usize>,
     pub label_column: usize,
@@ -186,6 +188,16 @@ impl Settings {
         if self.data.dataset_path.as_os_str().is_empty() {
             return Err(AppError::ConfigValidation(
                 "data.dataset_path must not be empty".to_owned(),
+            ));
+        }
+        if self
+            .data
+            .output_path
+            .as_ref()
+            .is_some_and(|path| path.as_os_str().is_empty())
+        {
+            return Err(AppError::ConfigValidation(
+                "data.output_path must not be empty when provided".to_owned(),
             ));
         }
         if self.data.feature_columns.len() != 40 {
