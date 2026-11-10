@@ -25,7 +25,11 @@ fn registry_resolves_both_configured_model_paths() {
 
 #[test]
 fn missing_models_are_reported_with_the_model_name() {
-    let settings = Settings::parse(DEFAULT_CONFIG).expect("default config should parse");
+    let mut settings = Settings::parse(DEFAULT_CONFIG).expect("default config should parse");
+    settings.models.deeplob_path = std::env::temp_dir().join(format!(
+        "rust-engine-missing-model-{}.onnx",
+        std::process::id()
+    ));
     let registry = ModelRegistry;
     let result = registry.ensure_exists(&settings, ModelType::DeepLob);
     assert!(matches!(

@@ -3,10 +3,11 @@ use std::path::Path;
 use crate::{config::DataSettings, error::AppError};
 
 pub fn encode_label(value: &str, path: &Path, row: usize) -> Result<u8, AppError> {
-    match value.trim().parse::<u8>() {
-        Ok(1) => Ok(0),
-        Ok(2) => Ok(1),
-        Ok(3) => Ok(2),
+    let numeric = value.trim().parse::<f64>().ok();
+    match numeric {
+        Some(1.0) => Ok(0),
+        Some(2.0) => Ok(1),
+        Some(3.0) => Ok(2),
         _ => Err(AppError::CsvLabel {
             path: path.to_owned(),
             row,
