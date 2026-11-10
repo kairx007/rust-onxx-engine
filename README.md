@@ -37,6 +37,12 @@ A single CSV file can be given as `dataset_path`. For several instrument/day fil
 
 The pipeline retains normalized segment data and compact window references. It allocates a contiguous 4,000-value `f32` buffer only when a window is requested, with shape `[1, 1, 100, 40]`. `InputTensor::into_ort_tensor` transfers that owned buffer into an ONNX Runtime tensor; it does not execute a model.
 
+## Phase 3 DeepLOB inference
+
+`DeepLobEngine::load` loads one DeepLOB ONNX session and validates its metadata against the configured input and three-class output contract. `DeepLobEngine::predict` accepts a Phase 2 `InputTensor`, submits a borrowed tensor view under the input name discovered from the loaded ONNX graph, then validates and classifies its three output scores. The retained session is reused across calls. Prediction requires mutable access to the engine because ONNX Runtime's session run API takes `&mut self`.
+
+No DeepLOB ONNX model is currently included under `models/`, so the actual graph's names, output shape, and output value semantics remain unverified. Synthetic tests cover metadata contracts, tensor adaptation, output validation, and classification, but do not establish that the real DeepLOB model loads or runs. Real-model integration testing remains required when the model asset is supplied.
+
 ## Phase 2 limitations
 
 No FI-2010 CSV files, `mu.npy`, `sigma.npy`, or ONNX models are included. Synthetic fixtures verify the implementation path, but cannot verify the real dataset's headers, label location, segment ordering, separate-label-file format, training partition provenance, or model metadata. No real-data compatibility or performance claim is made.
