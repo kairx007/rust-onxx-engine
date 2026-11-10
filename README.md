@@ -1,8 +1,12 @@
 # RustLOB
 
-RustLOB is a Rust implementation of the ONNX Runtime foundation and preprocessing pipeline for DeepLOB and TransformerLOB.
+RustLOB is a Rust CPU inference application for DeepLOB and TransformerLOB, built on ONNX Runtime. It includes model diagnostics, FI-2010-style CSV preprocessing, prediction commands, and a reproducible benchmark/report workflow.
 
-Phase 1 provides CPU runtime initialization, reusable model sessions, metadata inspection, and CLI diagnostics. Phase 2 loads segmented FI-2010-style CSV data, maps features and labels, applies supplied training normalization statistics, extracts non-overlapping windows, and constructs contiguous inference tensors. Phases 3 and 4 provide DeepLOB and TransformerLOB inference engines; Phase 2 itself does not run a model.
+Phases 1–4 provide CPU runtime setup, preprocessing, and DeepLOB/TransformerLOB model inference. Phase 5 provides the command-line workflows, and Phase 6 adds benchmarking and report comparison. The current inference input contract is float32 `[1, 1, 100, 40]` with three output classes.
+
+## Start here
+
+For the complete steps from adding an ONNX model through validating it, preparing data, generating predictions, and benchmarking, see the [model execution roadmap](docs/running-a-model.md). The project currently does not include model files, normalization arrays, or dataset CSVs; you must supply those assets to run against real data.
 
 ## Requirements
 
@@ -55,7 +59,7 @@ No FI-2010 CSV files, `mu.npy`, `sigma.npy`, or ONNX models are included. Synthe
 
 See [`context/context.md`](context/context.md), [`context/phase-01.md`](context/phase-01.md), and [`context/phase-02.md`](context/phase-02.md) for the project and phase specifications.
 
-## Phase 5 command-line workflows
+## Phase 5 CLI and Phase 6 benchmarking
 
 Build the `lob-inference` executable with `cargo build --release`. The existing diagnostics remain available:
 
@@ -98,4 +102,4 @@ Inference mode excludes model loading and preprocessing from per-call latency, p
 
 The C++ comparison command consumes a compatible JSON report; the C++ engine is not in this repository, so its benchmark must be run separately under matching conditions. No model files, FI-2010 CSVs, or normalization arrays are currently present. Real DeepLOB/TransformerLOB benchmark runs therefore require those assets. Dataset workflows also require verifying the configured columns and setting `data.schema_verified = true` after inspection.
 
-The repository currently has no ONNX models, FI-2010 CSVs, or normalization arrays. Real model validation, smoke inference, CSV predictions, and benchmark execution require those assets. Dataset workflows also require verifying the configured columns and setting `data.schema_verified = true` after inspection. Synthetic smoke input does not establish model compatibility or data accuracy.
+See the [model execution roadmap](docs/running-a-model.md) for model placement, configuration examples, validation and prediction commands, and troubleshooting. See [Phase 6 benchmark methodology](docs/phase-06-implementation.md) for benchmark modes, metric definitions, resource-sampling limitations, report fields, and Rust/C++ comparison requirements.
