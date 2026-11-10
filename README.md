@@ -54,3 +54,42 @@ No TransformerLOB ONNX model is included. Its actual metadata and any model-spec
 No FI-2010 CSV files, `mu.npy`, `sigma.npy`, or ONNX models are included. Synthetic fixtures verify the implementation path, but cannot verify the real dataset's headers, label location, segment ordering, separate-label-file format, training partition provenance, or model metadata. No real-data compatibility or performance claim is made.
 
 See [`context/context.md`](context/context.md), [`context/phase-01.md`](context/phase-01.md), and [`context/phase-02.md`](context/phase-02.md) for the project and phase specifications.
+
+## Phase 5 command-line workflows
+
+Build the `lob-inference` executable with `cargo build --release`. The existing diagnostics remain available:
+
+```sh
+lob-inference --help
+lob-inference runtime-info
+lob-inference inspect --model deeplob
+lob-inference validate --model transformerlob
+```
+
+Use `--config PATH` to select a TOML configuration and `--log-level error|warn|info|debug|trace` to override its logging level. The existing flat model path keys are retained. `data.output_path` defaults to `outputs/predictions.csv`; `--output` overrides it. `--model-path` can override the selected model path for a single command.
+
+Run a smoke prediction with synthetic input, or request one prepared from a dataset:
+
+```sh
+lob-inference smoke-test --model deeplob
+lob-inference smoke-test --model deeplob --input data/sample.csv
+```
+
+Run CSV inference and write window-level labels, predictions, and scores:
+
+```sh
+lob-inference predict --model deeplob --input data/test.csv --output outputs/deeplob.csv
+lob-inference predict --model transformerlob --segment data/day-1.csv --segment data/day-2.csv --overwrite
+```
+
+The prediction CSV schema is `window_index,source_file,segment_index,start_row,true_class,predicted_class,predicted_direction,down_score,stationary_score,up_score`. Classes use the existing internal mapping 0=Down, 1=Stationary, 2=Up. Output is written to a temporary file and published only after all windows succeed. Existing output is preserved unless `--overwrite` is supplied.
+
+Run the basic timing command on prepared input data:
+
+```sh
+lob-inference benchmark --model deeplob --input data/sample.csv --iterations 100
+```
+
+It loads the model once, prepares one valid tensor, then repeats inference on that tensor. It reports model-load time separately from inference time; it is a basic command-level measurement, not the Phase 6 benchmark suite.
+
+The repository currently has no ONNX models, FI-2010 CSVs, or normalization arrays. Real model validation, smoke inference, CSV predictions, and benchmark execution require those assets. Dataset workflows also require verifying the configured columns and setting `data.schema_verified = true` after inspection. Synthetic smoke input does not establish model compatibility or data accuracy.

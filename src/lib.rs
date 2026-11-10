@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 #![deny(missing_debug_implementations)]
 
+pub mod application;
 pub mod cli;
 pub mod config;
 pub mod data;

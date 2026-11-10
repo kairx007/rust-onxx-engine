@@ -5,6 +5,10 @@ edition = "2024"
 description = "Rust ONNX Runtime foundation for DeepLOB and TransformerLOB"
 license = "MIT"
 
+[[bin]]
+name = "lob-inference"
+path = "src/main.rs"
+
 [dependencies]
 anyhow = "1.0"
 csv = "1.4"
