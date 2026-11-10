@@ -1,10 +1,8 @@
 /target/
-*.onnx
 .env
 .env.*
 !.env.example
 .DS_Store
-/data/raw/*
-!/data/raw/.gitkeep
-/data/normalization/*.npy
 /outputs/
+/data/raw/*
+
