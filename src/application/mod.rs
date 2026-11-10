@@ -9,7 +9,7 @@ pub use diagnostics::{
     ConfiguredModelStatus, ModelInspection, RuntimeSummary, inspect_model, runtime_info,
 };
 pub use inference_service::{
-    BenchmarkSummary, PredictionSummary, SmokeTestResult, run_benchmark, run_prediction,
-    run_smoke_test,
+    BenchmarkOptions, BenchmarkSummary, PredictionSummary, SmokeTestResult, run_benchmark,
+    run_prediction, run_smoke_test,
 };
 pub use model_factory::{LoadedModel, ModelFactory};
