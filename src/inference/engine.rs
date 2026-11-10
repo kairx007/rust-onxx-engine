@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::{
     config::ModelSpecs,
     error::AppError,
-    inference::{Prediction, input, output},
+    inference::{Prediction, input, runner},
     models::{DeepLobContract, ModelType},
     runtime::{ModelSession, Runtime},
     tensor::InputTensor,
@@ -34,19 +34,12 @@ impl DeepLobEngine {
 
     pub fn predict(&mut self, input_tensor: &InputTensor) -> Result<Prediction, AppError> {
         let ort_input = input::adapt(input_tensor)?;
-        let outputs = self
-            .session
-            .session_mut()
-            .run(ort::inputs![self.contract.input_name() => ort_input])
-            .map_err(|source| AppError::InferenceExecution {
-                model: ModelType::DeepLob,
-                source,
-            })?;
-        let output = outputs.get(self.contract.output_name()).ok_or_else(|| {
-            AppError::MissingInferenceOutput {
-                name: self.contract.output_name().to_owned(),
-            }
-        })?;
-        output::extract(output, self.contract.output_metadata())
+        runner::predict(
+            &mut self.session,
+            ModelType::DeepLob,
+            self.contract.input_name(),
+            self.contract.output_metadata(),
+            ort_input,
+        )
     }
 }
