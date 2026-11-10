@@ -2,7 +2,7 @@
 
 RustLOB is a Rust implementation of the ONNX Runtime foundation and preprocessing pipeline for DeepLOB and TransformerLOB.
 
-Phase 1 provides CPU runtime initialization, reusable model sessions, metadata inspection, and CLI diagnostics. Phase 2 loads segmented FI-2010-style CSV data, maps features and labels, applies supplied training normalization statistics, extracts non-overlapping windows, and constructs contiguous inference tensors. Phases 3 and 4 will execute ONNX inference; Phase 2 does not run a model.
+Phase 1 provides CPU runtime initialization, reusable model sessions, metadata inspection, and CLI diagnostics. Phase 2 loads segmented FI-2010-style CSV data, maps features and labels, applies supplied training normalization statistics, extracts non-overlapping windows, and constructs contiguous inference tensors. Phases 3 and 4 provide DeepLOB and TransformerLOB inference engines; Phase 2 itself does not run a model.
 
 ## Requirements
 
@@ -42,6 +42,12 @@ The pipeline retains normalized segment data and compact window references. It a
 `DeepLobEngine::load` loads one DeepLOB ONNX session and validates its metadata against the configured input and three-class output contract. `DeepLobEngine::predict` accepts a Phase 2 `InputTensor`, submits a borrowed tensor view under the input name discovered from the loaded ONNX graph, then validates and classifies its three output scores. The retained session is reused across calls. Prediction requires mutable access to the engine because ONNX Runtime's session run API takes `&mut self`.
 
 No DeepLOB ONNX model is currently included under `models/`, so the actual graph's names, output shape, and output value semantics remain unverified. Synthetic tests cover metadata contracts, tensor adaptation, output validation, and classification, but do not establish that the real DeepLOB model loads or runs. Real-model integration testing remains required when the model asset is supplied.
+
+## Phase 4 TransformerLOB inference
+
+`TransformerLobEngine` reuses the common session runner and `Prediction` mapping from Phase 3. It reads tensor names and shapes from the loaded graph and currently accepts the Phase 2 `[1, 1, 100, 40]` float32 input without reshaping or reordering. It rejects any statically incompatible shape rather than guessing a layout transform. The engine retains one CPU session for repeated calls.
+
+No TransformerLOB ONNX model is included. Its actual metadata and any model-specific input transform remain unverified, and successful TransformerLOB inference has not been demonstrated. Supply and inspect the model before treating this path as model-compatible.
 
 ## Phase 2 limitations
 
