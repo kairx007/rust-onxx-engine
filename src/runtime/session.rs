@@ -79,4 +79,9 @@ impl ModelSession {
     pub fn session(&self) -> &Session {
         &self.session
     }
+
+    /// Returns mutable access for ONNX Runtime inference calls.
+    pub fn session_mut(&mut self) -> &mut Session {
+        &mut self.session
+    }
 }
