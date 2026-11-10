@@ -112,4 +112,22 @@ pub enum AppError {
     WindowReference(String),
     #[error("invalid input tensor: {0}")]
     TensorValidation(String),
+    #[error("{model} inference metadata is incompatible: {details}")]
+    InferenceMetadata { model: ModelType, details: String },
+    #[error("invalid inference input: {0}")]
+    InvalidInferenceInput(String),
+    #[error("could not create ONNX Runtime inference input: {0}")]
+    InputConversion(String),
+    #[error("ONNX Runtime inference failed for {model}: {source}")]
+    InferenceExecution {
+        model: ModelType,
+        #[source]
+        source: ort::Error,
+    },
+    #[error("model output '{name}' was not found")]
+    MissingInferenceOutput { name: String },
+    #[error("invalid model output: {0}")]
+    InvalidInferenceOutput(String),
+    #[error("could not construct prediction: {0}")]
+    Prediction(String),
 }
