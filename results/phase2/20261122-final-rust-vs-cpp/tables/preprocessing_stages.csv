@@ -1,0 +1,5 @@
+stage,processes,median_ms,min_ms,max_ms
+CSV parse + feature extraction,7,95.944708,94.559667,105.667208
+Z-score normalization,7,0.577125,0.5525410000000001,0.603291
+Window generation,7,0.007958000000000002,0.006458,0.010625
+Tensor construction (319 windows),7,0.47841700000000004,0.477417,0.4946249999999999

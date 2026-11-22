@@ -1,0 +1,7 @@
+engine,model,coreml_nodes,placements
+rust,deeplob,0,"{""CPUExecutionProvider"": ""all (single provider)""}"
+rust,transformerlob,0,"{""CPUExecutionProvider"": ""all (single provider)""}"
+rust-coreml,deeplob,2,"{""CoreMLExecutionProvider"": 2, ""CPUExecutionProvider"": 5}"
+rust-coreml,transformerlob,14,"{""CoreMLExecutionProvider"": 14, ""CPUExecutionProvider"": 37}"
+rust-msdylib,deeplob,0,"{""CPUExecutionProvider"": ""all (single provider)""}"
+rust-msdylib,transformerlob,0,"{""CPUExecutionProvider"": ""all (single provider)""}"

@@ -1,0 +1,12 @@
+# Keep only the final Rust vs C++ summary, tables and figures plus the data-check report in git.
+# Raw per-process reports, logs, inputs and earlier/quick runs stay local (regenerate with bench/run_suite.py).
+/*
+!/.gitignore
+!/data_checks/
+!/phase2/
+/phase2/*
+!/phase2/20261122-final-rust-vs-cpp/
+/phase2/20261122-final-rust-vs-cpp/*
+!/phase2/20261122-final-rust-vs-cpp/summary.md
+!/phase2/20261122-final-rust-vs-cpp/tables/
+!/phase2/20261122-final-rust-vs-cpp/figures/

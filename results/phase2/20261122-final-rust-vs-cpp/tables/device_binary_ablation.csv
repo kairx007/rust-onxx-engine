@@ -1,0 +1,13 @@
+model,engine,intra_threads,processes,slow_mode_processes,fast_mode_median_ms,ci95_lo,ci95_hi,session_run_median_ms
+DeepLOB,rust,1,15,0,0.691084,0.690854,0.6916665,0.689083
+DeepLOB,rust-msdylib,1,15,0,0.666771,0.6656875,0.668354,0.664875
+DeepLOB,rust-coreml,1,15,0,0.7967495,0.792146,0.797771,0.793979
+DeepLOB,rust,default,15,0,0.3175835,0.316833,0.31795850000000003,0.315667
+DeepLOB,rust-msdylib,default,15,0,0.27475,0.274313,0.275354,0.27295800000000003
+DeepLOB,rust-coreml,default,15,0,0.7935835,0.791354,0.795396,0.791479
+TransformerLOB,rust,1,15,0,0.9142505000000001,0.913292,0.9193125,0.912417
+TransformerLOB,rust-msdylib,1,15,0,0.8904995,0.8895,0.893875,0.88825
+TransformerLOB,rust-coreml,1,15,0,1.770146,1.7627295,1.778375,1.7678335
+TransformerLOB,rust,default,15,0,0.520479,0.517938,0.523,0.5184165
+TransformerLOB,rust-msdylib,default,15,0,0.33775,0.33720799999999995,0.3380205,0.3356045
+TransformerLOB,rust-coreml,default,15,0,1.7666665,1.7618960000000001,1.7708545,1.7647085

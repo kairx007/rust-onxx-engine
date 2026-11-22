@@ -1,0 +1,483 @@
+{
+  "artifact_identity": {
+    "cpp-engine/deeplob.onnx vs models/deeplob.onnx": true,
+    "cpp-engine/transformer.onnx vs models/transformerlob.onnx": true,
+    "cpp-engine/transformer.onnx.data vs models/transformer.onnx.data": true,
+    "cpp-engine/data/processed/mu.npy vs data/normalization/mu.npy": true,
+    "cpp-engine/data/processed/sigma.npy vs data/normalization/sigma.npy": true,
+    "cpp-engine/data/processed/X.npy vs data/normalization/X.npy": true,
+    "cpp-engine/data/processed/Y.npy vs data/normalization/Y.npy": true,
+    "cpp-engine/data/processed/zscore_stats.npz vs data/normalization/zscore_stats.npz": true,
+    "cpp-engine/data/processed/FI2010_test_test_n50000_w100_z.npz vs data/normalization/FI2010_test_test_n50000_w100_z.npz": true,
+    "cpp-engine/data/processed/FI2010_train_train_n50000_w100_z.npz vs data/normalization/FI2010_train_train_n50000_w100_z.npz": true
+  },
+  "raw_csv": {
+    "header_first_fields": [
+      "",
+      "0",
+      "1",
+      "2"
+    ],
+    "header_fields": 150,
+    "test_rows": 31937,
+    "train_rows_total": 362400,
+    "fields_per_row": 150,
+    "column0_is_row_index": true,
+    "layout": "raw col 0 = index; raw cols 1-40 = features; raw cols 145-149 = five label horizons (training uses 145)",
+    "label_values_col145": [
+      1.0,
+      2.0,
+      3.0
+    ]
+  },
+  "normalization": {
+    "shipped_vs_first_50k": {
+      "max_abs_mu": 8.760392665863037e-05,
+      "max_abs_sigma": 1.6987323760986328e-05
+    },
+    "shipped_vs_first_200k": {
+      "max_abs_mu": 0.556930422782898,
+      "max_abs_sigma": 0.6167759299278259,
+      "max_relative_sigma": 1.175996017803962
+    },
+    "note": "dataset.py stores sigma = std + 1e-8 and divides by it; Rust and C++ add 1e-8 again (negligible in float32)"
+  },
+  "test_arrays": {
+    "npz_equals_raw_normalized_with_shipped_stats": 0.0,
+    "npz_labels_equal_raw_col145_minus_1": true,
+    "phase2_reconstructed_csv_max_abs_feature_error": 7.100000001258877e-07,
+    "phase2_reconstructed_csv_labels_equal": true
+  },
+  "label_semantics": {
+    "per_column": {
+      "raw_col_145": {
+        "label_1": {
+          "count": 5547,
+          "frac_mid_up": 0.227,
+          "frac_mid_down": 0.153
+        },
+        "label_2": {
+          "count": 21339,
+          "frac_mid_up": 0.063,
+          "frac_mid_down": 0.051
+        },
+        "label_3": {
+          "count": 5051,
+          "frac_mid_up": 0.175,
+          "frac_mid_down": 0.228
+        }
+      },
+      "raw_col_146": {
+        "label_1": {
+          "count": 7140,
+          "frac_mid_up": 0.491,
+          "frac_mid_down": 0.149
+        },
+        "label_2": {
+          "count": 18183,
+          "frac_mid_up": 0.063,
+          "frac_mid_down": 0.054
+        },
+        "label_3": {
+          "count": 6614,
+          "frac_mid_up": 0.174,
+          "frac_mid_down": 0.478
+        }
+      },
+      "raw_col_147": {
+        "label_1": {
+          "count": 8260,
+          "frac_mid_up": 0.511,
+          "frac_mid_down": 0.286
+        },
+        "label_2": {
+          "count": 16128,
+          "frac_mid_up": 0.289,
+          "frac_mid_down": 0.251
+        },
+        "label_3": {
+          "count": 7549,
+          "frac_mid_up": 0.319,
+          "frac_mid_down": 0.478
+        }
+      },
+      "raw_col_148": {
+        "label_1": {
+          "count": 9967,
+          "frac_mid_up": 0.46,
+          "frac_mid_down": 0.316
+        },
+        "label_2": {
+          "count": 12955,
+          "frac_mid_up": 0.234,
+          "frac_mid_down": 0.2
+        },
+        "label_3": {
+          "count": 9015,
+          "frac_mid_up": 0.336,
+          "frac_mid_down": 0.441
+        }
+      },
+      "raw_col_149": {
+        "label_1": {
+          "count": 12237,
+          "frac_mid_up": 0.526,
+          "frac_mid_down": 0.38
+        },
+        "label_2": {
+          "count": 8748,
+          "frac_mid_up": 0.396,
+          "frac_mid_down": 0.321
+        },
+        "label_3": {
+          "count": 10952,
+          "frac_mid_up": 0.428,
+          "frac_mid_down": 0.492
+        }
+      }
+    },
+    "conclusion": "label 1 is followed by rising mid-prices and label 3 by falling ones: 1=Up, 3=Down, so internal class 0=Up and 2=Down (the Rust Direction enum and the C++ printouts say 0=Down, 2=Up)"
+  },
+  "window_alignment": {
+    "training": "stride 1, label at row i+100 (tick after the window)",
+    "rust_engine_before_fix": "stride 100, label at row i+99 (last row of the window)",
+    "rust_engine_now": "stride configurable (default 1), label at row i+100 (matches training)",
+    "cpp_full_inference": "stride 1, label at row i+100 (matches training)",
+    "rust_windows": 319,
+    "fraction_prefix_rust_label_differs_from_training_label": 0.28213166144200624
+  },
+  "split_quality": {
+    "deeplob | shipped_first_50k | val_day8": {
+      "windows": 10545,
+      "accuracy": 0.49748696064485537,
+      "macro_f1": 0.3434588513237034,
+      "recall_class0_1_2": [
+        0.1579,
+        0.7383,
+        0.1494
+      ],
+      "predicted_counts": [
+        1387,
+        7758,
+        1400
+      ],
+      "majority_class_accuracy": 0.5880512091038407,
+      "confusion_rows_true_cols_pred": [
+        [
+          353,
+          1622,
+          261
+        ],
+        [
+          799,
+          4578,
+          824
+        ],
+        [
+          235,
+          1558,
+          315
+        ]
+      ]
+    },
+    "deeplob | shipped_first_50k | test_days9_10": {
+      "windows": 21192,
+      "accuracy": 0.6430728576821442,
+      "macro_f1": 0.35338251005746124,
+      "recall_class0_1_2": [
+        0.1265,
+        0.8628,
+        0.0832
+      ],
+      "predicted_counts": [
+        1930,
+        17984,
+        1278
+      ],
+      "majority_class_accuracy": 0.7096073990184976,
+      "confusion_rows_true_cols_pred": [
+        [
+          412,
+          2623,
+          222
+        ],
+        [
+          1248,
+          12975,
+          815
+        ],
+        [
+          270,
+          2386,
+          241
+        ]
+      ]
+    },
+    "deeplob | train_py_first_200k | val_day8": {
+      "windows": 10545,
+      "accuracy": 0.5022285443338075,
+      "macro_f1": 0.35019750762943636,
+      "recall_class0_1_2": [
+        0.1342,
+        0.7407,
+        0.1912
+      ],
+      "predicted_counts": [
+        1207,
+        7733,
+        1605
+      ],
+      "majority_class_accuracy": 0.5880512091038407,
+      "confusion_rows_true_cols_pred": [
+        [
+          300,
+          1631,
+          305
+        ],
+        [
+          711,
+          4593,
+          897
+        ],
+        [
+          196,
+          1509,
+          403
+        ]
+      ]
+    },
+    "deeplob | train_py_first_200k | test_days9_10": {
+      "windows": 21192,
+      "accuracy": 0.6541619479048698,
+      "macro_f1": 0.3447149476423637,
+      "recall_class0_1_2": [
+        0.0534,
+        0.8858,
+        0.127
+      ],
+      "predicted_counts": [
+        846,
+        18474,
+        1872
+      ],
+      "majority_class_accuracy": 0.7096073990184976,
+      "confusion_rows_true_cols_pred": [
+        [
+          174,
+          2758,
+          325
+        ],
+        [
+          538,
+          13321,
+          1179
+        ],
+        [
+          134,
+          2395,
+          368
+        ]
+      ]
+    },
+    "transformerlob | shipped_first_50k | val_day8": {
+      "windows": 10545,
+      "accuracy": 0.30915125651967756,
+      "macro_f1": 0.308485373646664,
+      "recall_class0_1_2": [
+        0.3444,
+        0.2206,
+        0.5323
+      ],
+      "predicted_counts": [
+        2769,
+        2324,
+        5452
+      ],
+      "majority_class_accuracy": 0.5880512091038407,
+      "confusion_rows_true_cols_pred": [
+        [
+          770,
+          546,
+          920
+        ],
+        [
+          1423,
+          1368,
+          3410
+        ],
+        [
+          576,
+          410,
+          1122
+        ]
+      ]
+    },
+    "transformerlob | shipped_first_50k | test_days9_10": {
+      "windows": 21192,
+      "accuracy": 0.1905436013590034,
+      "macro_f1": 0.19075010253012473,
+      "recall_class0_1_2": [
+        0.7114,
+        0.0622,
+        0.271
+      ],
+      "predicted_counts": [
+        14960,
+        1444,
+        4788
+      ],
+      "majority_class_accuracy": 0.7096073990184976,
+      "confusion_rows_true_cols_pred": [
+        [
+          2317,
+          279,
+          661
+        ],
+        [
+          10760,
+          936,
+          3342
+        ],
+        [
+          1883,
+          229,
+          785
+        ]
+      ]
+    },
+    "transformerlob | train_py_first_200k | val_day8": {
+      "windows": 10545,
+      "accuracy": 0.3171171171171171,
+      "macro_f1": 0.31844466750691314,
+      "recall_class0_1_2": [
+        0.4146,
+        0.2158,
+        0.5119
+      ],
+      "predicted_counts": [
+        3270,
+        2050,
+        5225
+      ],
+      "majority_class_accuracy": 0.5880512091038407,
+      "confusion_rows_true_cols_pred": [
+        [
+          927,
+          437,
+          872
+        ],
+        [
+          1589,
+          1338,
+          3274
+        ],
+        [
+          754,
+          275,
+          1079
+        ]
+      ]
+    },
+    "transformerlob | train_py_first_200k | test_days9_10": {
+      "windows": 21192,
+      "accuracy": 0.19158172895432238,
+      "macro_f1": 0.19154174350596756,
+      "recall_class0_1_2": [
+        0.7074,
+        0.0647,
+        0.2703
+      ],
+      "predicted_counts": [
+        14844,
+        1510,
+        4838
+      ],
+      "majority_class_accuracy": 0.7096073990184976,
+      "confusion_rows_true_cols_pred": [
+        [
+          2304,
+          295,
+          658
+        ],
+        [
+          10668,
+          973,
+          3397
+        ],
+        [
+          1872,
+          242,
+          783
+        ]
+      ]
+    }
+  },
+  "train_window_quality": {
+    "deeplob": {
+      "windows": 4000,
+      "accuracy": 0.49925,
+      "macro_f1": 0.37183838174175393,
+      "recall_class0_1_2": [
+        0.1693,
+        0.6959,
+        0.2506
+      ],
+      "predicted_counts": [
+        531,
+        2742,
+        727
+      ],
+      "majority_class_accuracy": 0.59525,
+      "confusion_rows_true_cols_pred": [
+        [
+          137,
+          559,
+          113
+        ],
+        [
+          313,
+          1657,
+          411
+        ],
+        [
+          81,
+          526,
+          203
+        ]
+      ]
+    },
+    "transformerlob": {
+      "windows": 4000,
+      "accuracy": 0.31125,
+      "macro_f1": 0.31402516679916287,
+      "recall_class0_1_2": [
+        0.4512,
+        0.189,
+        0.5309
+      ],
+      "predicted_counts": [
+        1346,
+        704,
+        1950
+      ],
+      "majority_class_accuracy": 0.59525,
+      "confusion_rows_true_cols_pred": [
+        [
+          365,
+          151,
+          293
+        ],
+        [
+          704,
+          450,
+          1227
+        ],
+        [
+          277,
+          103,
+          430
+        ]
+      ]
+    }
+  }
+}

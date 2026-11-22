@@ -1,0 +1,3 @@
+model,processes,windows,median_total_ms,median_per_window_ms,throughput_windows_per_s
+DeepLOB,7,319,200.786541,0.6294248934169279,1588.751907429891
+TransformerLOB,7,319,265.593291,0.8325808495297806,1201.0845560101138
