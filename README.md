@@ -112,10 +112,33 @@ from `ORT_DYLIB_PATH` instead of linking the bundled binary.
 The process-isolated benchmark suite, Python baseline, analysis, and C++ integration contract
 are in [`bench/README.md`](bench/README.md).
 
+## Results: Rust vs C++
+
+A process-isolated benchmark (499 fresh processes, randomized interleaved order, Apple M3) compared this engine with
+the C++ engine in `cpp-engine/` on identical models, inputs and ONNX Runtime 1.31.0:
+
+| Model | Threads | C++ | Rust + Microsoft ORT | Rust (bundled ORT) |
+|---|---|---|---|---|
+| DeepLOB | 1 | 0.674 ms | 0.667 ms | 0.691 ms |
+| DeepLOB | default | 0.275 ms | 0.275 ms | 0.318 ms |
+| TransformerLOB | 1 | 0.897 ms | 0.890 ms | 0.914 ms |
+| TransformerLOB | default | 0.336 ms | 0.338 ms | 0.520 ms |
+
+- With the same ONNX Runtime library, Rust is within 1.1% of C++; outputs are bit-identical at one thread.
+- The gap with the default build comes from the ONNX Runtime binary the `ort` crate bundles, not from Rust; build
+  with `--no-default-features --features ort-dynamic` and set `ORT_DYLIB_PATH` to use another build.
+- Rust's own per-call overhead is about 2 µs; cold start is 37–51 ms (C++ 42–55 ms).
+
+Full results: [`research/08_final_results.md`](research/08_final_results.md); figures and tables:
+[`results/phase2/20261122-final-rust-vs-cpp/`](results/phase2/20261122-final-rust-vs-cpp/summary.md); paper draft:
+[`research/09_paper_draft.md`](research/09_paper_draft.md); data audit:
+[`results/data_checks/report.md`](results/data_checks/report.md).
+
 ## Documentation
 
 - [Model setup and execution guide](docs/running-a-model.md)
-- [Benchmark methodology and report details](docs/phase-06-implementation.md)
+- [Benchmark harness, methodology and C++ integration](bench/README.md)
+- [Research notes and final results](research/README.md)
 
 ## Current limitations
 

@@ -72,8 +72,8 @@ binary links ORT statically. (`fig5_cold_start`, `tables/cold_start.csv`.)
 ## Pitfall found: silent CoreML offload in the Rust binding
 
 `ort` 2.0.0-rc.15 sets ONNX Runtime's `MaxEfficiency` automatic device policy on every session. On Apple silicon ORT
-then places 2 DeepLOB and 14 TransformerLOB nodes on the CoreML execution provider (ORT trace logs,
-`tables/node_placement.csv`) although only the CPU provider is registered. Effects: logits off by up to 3.0e-3
+then assigns 2 fused CoreML partitions of DeepLOB (of 7 post-partitioning nodes) and 14 of TransformerLOB (of 51) to
+the CoreML execution provider (ORT trace logs, `tables/node_placement.csv`) although only the CPU provider is registered. Effects: logits off by up to 3.0e-3
 (300× the tolerance), 1.2–2.0× slower inference (DeepLOB 0.797 vs 0.674 ms; TransformerLOB 1.770 vs 0.897 ms at
 1 thread), and 3–8× slower cold start. The C++ API applies no such policy. Fix: `device_policy = "cpu"` (default),
 which sets `PreferCPU`; regression test in `tests/model_loading_tests.rs`.
