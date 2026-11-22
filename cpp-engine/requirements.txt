@@ -1,0 +1,81 @@
+# ========================================================================
+# DeepLOB-HFT-Cpp: Python Requirements
+# ========================================================================
+# Production-grade dependencies for limit order book forecasting research.
+#
+# Installation:
+#   pip install -r requirements.txt
+#
+# For CUDA support, install PyTorch separately:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+# ========================================================================
+
+# Core Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Data Processing
+pandas>=2.0.0
+scikit-learn>=1.3.0
+tables>=3.8.0  # For HDF5 support
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.14.0
+
+# Experiment Tracking
+tensorboard>=2.13.0
+wandb>=0.15.0  # Optional: for Weights & Biases
+
+# Configuration Management
+pyyaml>=6.0
+omegaconf>=2.3.0  # Advanced config management
+
+# Model Export & Deployment
+onnx>=1.14.0
+onnxscript>=0.1.0
+onnxruntime>=1.15.0
+onnxruntime-gpu>=1.15.0  # Optional: for GPU inference
+
+# Performance Profiling
+py-spy>=0.3.14  # CPU profiling
+memory-profiler>=0.61.0  # Memory profiling
+line-profiler>=4.0.0  # Line-by-line profiling
+
+# Code Quality
+black>=23.3.0  # Code formatting
+flake8>=6.0.0  # Linting
+mypy>=1.3.0  # Type checking
+pytest>=7.3.0  # Testing
+pytest-cov>=4.1.0  # Coverage
+
+# Jupyter Notebooks (for research)
+jupyter>=1.0.0
+notebook>=6.5.0
+ipywidgets>=8.0.0
+
+# Utilities
+tqdm>=4.65.0  # Progress bars
+colorama>=0.4.6  # Colored terminal output
+python-dotenv>=1.0.0  # Environment variables
+psutil>=5.9.0  # System monitoring
+
+# Advanced Data Handling
+h5py>=3.8.0  # HDF5 file format
+joblib>=1.2.0  # Caching and serialization
+pyarrow>=12.0.0  # Fast data serialization
+
+# Optional: Time Series Analysis
+statsmodels>=0.14.0
+arch>=5.6.0  # GARCH models for volatility
+
+# Optional: AutoML & Hyperparameter Tuning
+optuna>=3.2.0  # Hyperparameter optimization
+ray[tune]>=2.5.0; python_version < "3.13"  # Distributed hyperparameter tuning (no py3.13 wheels yet)
+
+# Development Tools
+ipdb>=0.13.13  # Interactive debugger
+rich>=13.3.0  # Rich terminal output

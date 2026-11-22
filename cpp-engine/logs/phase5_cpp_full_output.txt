@@ -1,0 +1,11 @@
+Model path       : transformer.onnx
+CSV path         : data/raw/FI2010_test.csv
+mu/sigma         : data/processed/mu.npy | data/processed/sigma.npy
+Rows loaded      : 31937
+Windows used     : 500
+Batch size       : 1
+Warmup runs      : 10
+Total infer time : 545.0594 ms
+Mean per window  : 1.0901 ms
+Throughput       : 917.3312 windows/s
+Accuracy         : 33.0000% (165/500)

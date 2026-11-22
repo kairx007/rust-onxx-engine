@@ -1,0 +1,63 @@
+# --- .gitignore ---
+
+# Ignore Data (Too large for GitHub)
+data/
+*.csv
+*.zip
+
+# Ignore Python Caches
+__pycache__/
+*.pyc
+
+# Ignore Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# Ignore Environment Variables (Security)
+.env
+.venv/
+env/
+
+# Ignore IDE settings
+.vscode/
+.idea/
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Model Checkpoints
+*.pt
+
+# C++ binaries and libraries
+onnxruntime/
+*.exe
+*.dll
+*.pdb
+*.lib
+*.a
+
+# CMake / Build artifacts
+build/
+build*/
+out/
+bin/
+CMakeCache.txt
+CMakeFiles/
+third_party/
+
+# Exported Models
+*.onnx
+*.onnx.data
+
+# Serialized Tensors Data
+*.npy
+*.npz
+
+# Screen Recordings
+*.mp4
+*.mov
+*.mkv
+*.webm
+
+# Image plots
+*.png

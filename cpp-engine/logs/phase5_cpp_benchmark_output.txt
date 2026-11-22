@@ -1,0 +1,7 @@
+Model path       : transformer.onnx
+Warmup runs      : 20
+Timed runs       : 200
+Mean latency (ms): 1.1590
+Std latency (ms) : 2.0525
+P99 latency (ms) : 9.7863
+Target check     : FAIL (>=1 ms mean)
