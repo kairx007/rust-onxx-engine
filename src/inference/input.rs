@@ -55,9 +55,9 @@ mod tests {
     #[test]
     fn creates_a_borrowed_tensor_view_with_the_phase_two_shape_and_order() {
         let _runtime = Runtime::initialize("cpu").expect("runtime should initialize");
-        let values = (0..4_000).map(|value| value as f32).collect::<Vec<_>>();
-        let segment = LobSegment::new("synthetic.csv", values, vec![2; 100]).unwrap();
-        assert_eq!(segment.features().len(), 100 * FEATURE_COUNT);
+        let values = (0..4_040).map(|value| value as f32).collect::<Vec<_>>();
+        let segment = LobSegment::new("synthetic.csv", values, vec![2; 101]).unwrap();
+        assert_eq!(segment.features().len(), 101 * FEATURE_COUNT);
         let input = InputTensor::from_window(
             &segment,
             WindowRef {
@@ -100,8 +100,8 @@ mod tests {
         };
         let contract = TransformerLobContract::from_metadata(&metadata, &settings.model_specs)
             .expect("dynamic batch metadata should be compatible");
-        let values = (0..4_000).map(|value| value as f32).collect::<Vec<_>>();
-        let segment = LobSegment::new("synthetic.csv", values, vec![2; 100]).unwrap();
+        let values = (0..4_040).map(|value| value as f32).collect::<Vec<_>>();
+        let segment = LobSegment::new("synthetic.csv", values, vec![2; 101]).unwrap();
         let input = InputTensor::from_window(
             &segment,
             WindowRef {

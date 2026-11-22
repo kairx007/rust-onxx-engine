@@ -44,7 +44,7 @@ Use `transformerlob` in place of `deeplob` for TransformerLOB. The synthetic smo
 
 Copy `configs/default.toml` to a local config, then set the model path, CSV path, verified feature and label columns, header setting, and normalization paths. The default column mapping is only a candidate: verify it against your CSV before setting `data.schema_verified = true`.
 
-The CSV must contain 40 selected features and the configured label column. Labels are currently required by the loader and must use supported FI-2010 values (1, 2, or 3). Provide the model's training `mu.npy` and `sigma.npy` arrays, each containing 40 values; the application does not calculate normalization statistics. The pipeline creates non-overlapping 100-row windows.
+The CSV must contain 40 selected features and the configured label column. Labels are currently required by the loader and must use supported FI-2010 values (1, 2, or 3). Provide the model's training `mu.npy` and `sigma.npy` arrays, each containing 40 values; the application does not calculate normalization statistics. Window *i* covers rows *i*…*i*+99 and is labelled with row *i*+100, the tick after it — the convention the models were trained with and the C++ engine uses. `preprocessing.stride` (default 1) sets the step between windows. The default column mapping matches the FI-2010 CSVs used for training: a header line, a row-index column 0, features in columns 1–40, and the label in column 145.
 
 Run inference:
 
@@ -55,7 +55,7 @@ cargo run --release -- --config configs/local.toml predict \
   --output outputs/deeplob-predictions.csv
 ```
 
-For ordered data segments, use `--segment path/to/first.csv --segment path/to/next.csv` instead of `--input`. Prediction output contains one record per complete window with the true class, predicted class/direction, and three scores. Existing output is preserved unless `--overwrite` is supplied.
+For ordered data segments, use `--segment path/to/first.csv --segment path/to/next.csv` instead of `--input`. Prediction output contains one record per complete window with the true class, predicted class/direction, and three scores (`class0_up_score`, `class1_stationary_score`, `class2_down_score`; FI-2010 labels 1/2/3 = Up/Stationary/Down map to classes 0/1/2). Existing output is preserved unless `--overwrite` is supplied.
 
 ### Benchmark inference
 
@@ -81,6 +81,37 @@ cargo run --release -- compare \
 
 The C++ engine is not included. Run it separately and compare only reports collected with matching models, inputs, preprocessing, runtime, provider, and thread settings.
 
+### Runtime options
+
+Global flags (or the matching `[runtime]` keys in the TOML config):
+
+| Flag | Config key | Meaning |
+|---|---|---|
+| `--intra-threads N` | `intra_op_threads` | ONNX Runtime intra-op threads (omit for the ORT default) |
+| `--inter-threads N` | `inter_op_threads` | ONNX Runtime inter-op threads |
+| `--graph-opt LEVEL` | `graph_optimization` | `disable`, `level1`, `level2`, `level3`, `all` |
+| `--intra-spinning BOOL` | `intra_op_spinning` | allow intra-op threads to spin |
+| `--device-policy POLICY` | `device_policy` | `cpu` (default) or `auto-efficiency` |
+
+`device_policy = "cpu"` is the default because the `ort` crate otherwise sets ONNX Runtime's
+`MaxEfficiency` automatic device policy, which on Apple silicon places parts of both models on the
+CoreML execution provider (reduced precision, slower for these models) even though only the CPU
+provider is registered. `runtime-info` prints the linked ONNX Runtime build string and the
+effective session options; benchmark reports record both.
+
+`benchmark --input-policy cycle` feeds every prepared window in turn instead of reusing the first
+one. Inference-mode reports carry per-call `session_run_samples_ms` (time inside `Session::run`)
+next to the full `predict` latency.
+
+`export-windows --output-dir DIR` writes the exact preprocessed tensors (`windows.npy`,
+`labels.npy`, `windows.json`) so other engines can be fed identical inputs.
+
+Build with `--no-default-features --features ort-dynamic` to load ONNX Runtime at run time
+from `ORT_DYLIB_PATH` instead of linking the bundled binary.
+
+The process-isolated benchmark suite, Python baseline, analysis, and C++ integration contract
+are in [`bench/README.md`](bench/README.md).
+
 ## Documentation
 
 - [Model setup and execution guide](docs/running-a-model.md)
@@ -88,4 +119,4 @@ The C++ engine is not included. Run it separately and compare only reports colle
 
 ## Current limitations
 
-No ONNX models, normalization arrays, or real datasets are included. Real-data inference and performance measurements require those assets. GPU inference, automatic input-layout conversion, and numerical-equivalence validation are not implemented.
+The repository includes `models/deeplob.onnx`, `models/transformerlob.onnx` (with its external-weights file `models/transformer.onnx.data`), and the FI-2010 training normalization arrays. The raw FI-2010 CSVs are not included; `bench/prepare_dataset.py` reconstructs a raw-scale test CSV from the committed z-scored test array. GPU inference, batching, and automatic input-layout conversion are not implemented. Numerical equivalence is checked against Python ONNX Runtime by the benchmark suite; equivalence against the C++ engine is pending.

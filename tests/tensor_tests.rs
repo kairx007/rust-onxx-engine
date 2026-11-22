@@ -8,7 +8,8 @@ use rust_engine::{
 
 #[test]
 fn builds_contiguous_row_major_tensor_and_preserves_window_label() {
-    let rows = 100;
+    // 100 window rows plus the label row (row 100, label 100 % 3 = 1).
+    let rows = 101;
     let features = (0..rows)
         .flat_map(|row| {
             (0..FEATURE_COUNT).map(move |feature| (row * FEATURE_COUNT + feature) as f32)
@@ -21,7 +22,7 @@ fn builds_contiguous_row_major_tensor_and_preserves_window_label() {
         WindowRef {
             segment_index: 0,
             start_row: 0,
-            label: 0,
+            label: 1,
         },
     )
     .unwrap();
@@ -55,8 +56,12 @@ fn rejects_wrong_tensor_shape_length_and_nonfinite_values() {
 #[test]
 fn transfers_owned_buffer_into_ort_value_without_running_inference() {
     let _runtime = Runtime::initialize("cpu").expect("ORT runtime should initialize");
-    let segment =
-        LobSegment::new("tensor.csv", vec![1.0; INPUT_VALUE_COUNT], vec![2; 100]).unwrap();
+    let segment = LobSegment::new(
+        "tensor.csv",
+        vec![1.0; INPUT_VALUE_COUNT + FEATURE_COUNT],
+        vec![2; 101],
+    )
+    .unwrap();
     let tensor = InputTensor::from_window(
         &segment,
         WindowRef {

@@ -15,6 +15,21 @@ pub struct Cli {
     pub config: PathBuf,
     #[arg(long, global = true, value_parser = ["error", "warn", "info", "debug", "trace"])]
     pub log_level: Option<String>,
+    /// Override runtime.intra_op_threads (ONNX Runtime intra-op thread count).
+    #[arg(long, global = true, value_parser = parse_positive_usize)]
+    pub intra_threads: Option<usize>,
+    /// Override runtime.inter_op_threads (ONNX Runtime inter-op thread count).
+    #[arg(long, global = true, value_parser = parse_positive_usize)]
+    pub inter_threads: Option<usize>,
+    /// Override runtime.graph_optimization (disable, level1, level2, level3, all).
+    #[arg(long, global = true, value_parser = ["disable", "level1", "level2", "level3", "all"])]
+    pub graph_opt: Option<String>,
+    /// Override runtime.intra_op_spinning (true or false).
+    #[arg(long, global = true)]
+    pub intra_spinning: Option<bool>,
+    /// Override runtime.device_policy: cpu (CPU provider only) or auto-efficiency (ort's MaxEfficiency).
+    #[arg(long, global = true, value_parser = ["cpu", "auto-efficiency"])]
+    pub device_policy: Option<String>,
     #[command(subcommand)]
     pub command: Command,
 }
@@ -83,6 +98,9 @@ pub enum Command {
         /// Measurement path.
         #[arg(long, value_enum, default_value_t = BenchmarkMode::Inference)]
         mode: BenchmarkMode,
+        /// Inference-mode input selection: reuse the first window, or cycle through all windows.
+        #[arg(long, value_enum, default_value_t = InputPolicy::First)]
+        input_policy: InputPolicy,
         /// Sample process RSS concurrently with the benchmark.
         #[arg(long)]
         profile_memory: bool,
@@ -98,6 +116,14 @@ pub enum Command {
         /// Override the configured ONNX model path for this command.
         #[arg(long)]
         model_path: Option<PathBuf>,
+    },
+    /// Write the exact preprocessed input tensors (and labels) as NPY files for other engines.
+    ExportWindows {
+        #[command(flatten)]
+        input: InputArgs,
+        /// Directory that receives windows.npy, labels.npy, and windows.json. Must not already contain them.
+        #[arg(long)]
+        output_dir: PathBuf,
     },
     /// Compare two compatible JSON benchmark reports.
     Compare {
@@ -119,6 +145,23 @@ pub enum BenchmarkMode {
     Preprocessing,
     EndToEnd,
     Load,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum InputPolicy {
+    /// Reuse the first prepared window for every call (isolates model execution).
+    First,
+    /// Feed every prepared window in order, wrapping around (data-dependent timing).
+    Cycle,
+}
+
+impl InputPolicy {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::First => "first",
+            Self::Cycle => "cycle",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]

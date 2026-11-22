@@ -19,9 +19,9 @@ pub struct PredictionRow {
     pub true_class: u8,
     pub predicted_class: usize,
     pub predicted_direction: &'static str,
-    pub down_score: f32,
-    pub stationary_score: f32,
-    pub up_score: f32,
+    pub class0_up_score: f32,
+    pub class1_stationary_score: f32,
+    pub class2_down_score: f32,
 }
 
 impl PredictionRow {
@@ -35,9 +35,9 @@ impl PredictionRow {
     ) -> Self {
         let scores = prediction.scores();
         let predicted_direction = match prediction.direction() {
-            crate::inference::Direction::Down => "Down",
-            crate::inference::Direction::Stationary => "Stationary",
             crate::inference::Direction::Up => "Up",
+            crate::inference::Direction::Stationary => "Stationary",
+            crate::inference::Direction::Down => "Down",
         };
         Self {
             window_index,
@@ -47,9 +47,9 @@ impl PredictionRow {
             true_class,
             predicted_class: prediction.class_index(),
             predicted_direction,
-            down_score: scores[0],
-            stationary_score: scores[1],
-            up_score: scores[2],
+            class0_up_score: scores[0],
+            class1_stationary_score: scores[1],
+            class2_down_score: scores[2],
         }
     }
 }
@@ -237,8 +237,8 @@ mod tests {
             .unwrap();
         writer.finish().unwrap();
         let contents = fs::read_to_string(&path).unwrap();
-        assert!(contents.starts_with("window_index,source_file,segment_index,start_row,true_class,predicted_class,predicted_direction,down_score,stationary_score,up_score"));
-        assert!(contents.contains("4,segment.csv,2,100,1,2,Up,0.1,0.2,0.7"));
+        assert!(contents.starts_with("window_index,source_file,segment_index,start_row,true_class,predicted_class,predicted_direction,class0_up_score,class1_stationary_score,class2_down_score"));
+        assert!(contents.contains("4,segment.csv,2,100,1,2,Down,0.1,0.2,0.7"));
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 

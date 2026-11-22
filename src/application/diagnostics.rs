@@ -20,6 +20,8 @@ pub struct RuntimeSummary {
     pub application_version: &'static str,
     pub execution_provider: &'static str,
     pub ort_api_target: u32,
+    pub runtime_build_info: &'static str,
+    pub session_options: String,
     pub models: [ConfiguredModelStatus; 2],
 }
 
@@ -53,7 +55,7 @@ impl ModelInspection {
 }
 
 pub fn runtime_info(settings: &Settings) -> Result<RuntimeSummary, AppError> {
-    let runtime = Runtime::initialize(&settings.runtime.execution_provider)?;
+    let runtime = Runtime::from_settings(&settings.runtime)?;
     let registry = ModelRegistry;
     let models = [ModelType::DeepLob, ModelType::TransformerLob].map(|model| {
         let path = registry.path_for(settings, model);
@@ -68,6 +70,8 @@ pub fn runtime_info(settings: &Settings) -> Result<RuntimeSummary, AppError> {
         application_version: env!("CARGO_PKG_VERSION"),
         execution_provider: runtime.execution_provider(),
         ort_api_target: ort::MINOR_VERSION,
+        runtime_build_info: runtime.build_info(),
+        session_options: runtime.session_options().describe(),
         models,
     })
 }
@@ -88,7 +92,7 @@ pub fn inspect_model(
         });
     }
 
-    let runtime = Runtime::initialize(&settings.runtime.execution_provider)?;
+    let runtime = Runtime::from_settings(&settings.runtime)?;
     let loaded = ModelSession::load(&runtime, model, &path)?;
     let metadata = loaded.metadata().clone();
     let validation_error = validate_contract(model, &metadata, settings)

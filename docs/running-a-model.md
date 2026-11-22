@@ -57,9 +57,9 @@ transformerlob_path = "models/transformerlob.onnx"
 dataset_path = "data/raw/test.csv"
 output_path = "outputs/predictions.csv"
 segment_paths = []
-feature_columns = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]
-label_column = 144
-has_headers = false
+feature_columns = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
+label_column = 145
+has_headers = true
 schema_verified = true
 
 [normalization]
@@ -67,13 +67,13 @@ mean_path = "data/normalization/mu.npy"
 std_path = "data/normalization/sigma.npy"
 ```
 
-These are examples, not verified dataset values. `feature_columns` and `label_column` are **zero-based column indices**. The default mapping assumes features at columns 0 through 39 and a label at column 144, but you must verify the actual file layout before setting `schema_verified = true`. If the CSV has a header row, set `has_headers = true` and check that the selected columns still correspond to the intended values.
+`feature_columns` and `label_column` are **zero-based column indices**. The default mapping matches the FI-2010 CSVs the models were trained on (`FI2010_train.csv`, `FI2010_test.csv`): one header line, column 0 is a row index, columns 1 through 40 are the features, and columns 145–149 hold five label horizons, of which training uses column 145 (layout checked by `bench/data_checks.py`). Verify your own file against this before setting `schema_verified = true`; a CSV without the index column needs features at 0–39 and the label at 144.
 
 The application currently expects labels in the input CSV during inference, even though predictions do not need labels mathematically. It uses those labels to populate the output's `true_class` field. Files without the configured label column are rejected by the current loader.
 
 Normalization files must be the **training statistics used by the model**: two one-dimensional NPY arrays, each containing 40 values. The application loads these values; it does not calculate or infer them. Do not compute mean/std from the prediction dataset and substitute them for training statistics.
 
-The preprocessing configuration is intentionally constrained to sequence length 100 and stride 100. The application produces non-overlapping windows and keeps files as separate segments, so a window never crosses a segment boundary.
+The sequence length is fixed at 100 by the model contract. Window *i* covers rows *i* through *i*+99 and is labelled with row *i*+100 — the tick immediately after the window, which is how the models were trained (`cpp-engine/src/dataset.py`) and how the C++ engine evaluates. `stride` sets the step between window starts; the default of 1 evaluates every window, as training does, and larger values subsample. Files stay separate segments, so a window never crosses a segment boundary.
 
 ## 4. Check runtime and model metadata
 
@@ -111,7 +111,7 @@ cargo run --release -- --config configs/local.toml smoke-test \
   --std-path data/normalization/sigma.npy
 ```
 
-This checks CSV reading, feature extraction, normalization, window construction, and one inference call. A complete window requires at least 100 valid data rows. The current preprocessing pipeline rejects blank rows, malformed numeric values, invalid labels, inconsistent CSV widths, and missing selected columns.
+This checks CSV reading, feature extraction, normalization, window construction, and one inference call. A complete window requires at least 101 valid data rows: 100 for the window and one for its label. The current preprocessing pipeline rejects blank rows, malformed numeric values, invalid labels, inconsistent CSV widths, and missing selected columns.
 
 ## 7. Run inference over all windows
 
@@ -133,7 +133,7 @@ cargo run --release -- --config configs/local.toml predict \
   --output outputs/transformerlob-predictions.csv
 ```
 
-The CLI overrides for the mean and standard deviation files are optional when `configs/local.toml` already contains the right paths. A successful run writes one CSV record per complete window, including the source, window location, true label, predicted class/direction, and three class scores. The internal output classes are 0=Down, 1=Stationary, and 2=Up. Output is first written to a temporary file and published after every prediction succeeds. Existing output is preserved unless you pass `--overwrite`.
+The CLI overrides for the mean and standard deviation files are optional when `configs/local.toml` already contains the right paths. A successful run writes one CSV record per complete window, including the source, window location, true label, predicted class/direction, and three class scores. FI-2010 labels 1, 2, 3 mean Up, Stationary, Down, so the internal classes are 0=Up, 1=Stationary, and 2=Down; the score columns are `class0_up_score`, `class1_stationary_score`, and `class2_down_score`. Output is first written to a temporary file and published after every prediction succeeds. Existing output is preserved unless you pass `--overwrite`.
 
 For multiple chronological CSV segments, provide each with a repeated `--segment` option instead of `--input`:
 
@@ -207,7 +207,7 @@ The comparison checks that both reports identify the requested model and inferen
 | Missing normalization file | Supply the model's training `mu.npy` and `sigma.npy` through config or `--mean-path`/`--std-path`. |
 | CSV row has too few columns | Verify the selected zero-based feature and label indices and whether the file has a header. |
 | Invalid label | The configured label column must contain supported FI-2010 labels (1, 2, or 3). |
-| No complete windows | The selected CSV segment needs at least 100 data rows after its header. |
+| No complete windows | The selected CSV segment needs at least 101 data rows after its header (100 window rows plus the label row). |
 | Several CSV files found in a directory | Supply their chronological order with repeated `--segment` options. |
 | Output/report already exists | Choose a new path; prediction output can be replaced with `--overwrite`. Benchmark and comparison reports intentionally do not overwrite. |
 | TransformerLOB graph rejected | Its actual model must accept the current `[1, 1, 100, 40]` contract; no automatic layout conversion is implemented. |

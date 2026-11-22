@@ -100,3 +100,61 @@ fn rejects_an_empty_configured_output_path() {
         Err(AppError::ConfigValidation(_))
     ));
 }
+
+#[test]
+fn default_config_reads_the_real_fi2010_csv_layout() {
+    // FI2010_*.csv: a header line, column 0 = row index, features in columns 1-40,
+    // labels in columns 145-149 (training uses 145). Windows follow the training convention.
+    use rust_engine::{config::Settings, preprocessing::PreprocessingPipeline};
+    let dir = std::env::temp_dir().join(format!("rustlob-raw-layout-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let csv = dir.join("FI2010_test.csv");
+    let mut text = String::from(",");
+    text.push_str(
+        &(0..149)
+            .map(|c| c.to_string())
+            .collect::<Vec<_>>()
+            .join(","),
+    );
+    text.push('\n');
+    for row in 0..103_usize {
+        let mut fields = vec![row.to_string()];
+        fields.extend((0..149).map(|c| format!("{}", (row * 1000 + c) as f32)));
+        fields[145] = format!("{}.0", row % 3 + 1); // FI-2010 label 1/2/3 as written by pandas
+        text.push_str(&fields.join(","));
+        text.push('\n');
+    }
+    std::fs::write(&csv, text).unwrap();
+    let write_npy = |name: &str, value: f32| {
+        let path = dir.join(name);
+        let file = std::fs::File::create(&path).unwrap();
+        let mut writer = npyz::WriteOptions::new()
+            .default_dtype()
+            .shape(&[40])
+            .writer(std::io::BufWriter::new(file))
+            .begin_nd()
+            .unwrap();
+        writer.extend(std::iter::repeat_n(value, 40)).unwrap();
+        writer.finish().unwrap();
+        path
+    };
+    use npyz::WriterBuilder;
+    let mut settings = Settings::parse(include_str!("../configs/default.toml")).unwrap();
+    settings.data.dataset_path = csv;
+    settings.data.schema_verified = true;
+    settings.normalization.mean_path = write_npy("mu.npy", 0.0);
+    settings.normalization.std_path = write_npy("sigma.npy", 1.0);
+    let prepared = PreprocessingPipeline::new(&settings)
+        .unwrap()
+        .prepare()
+        .unwrap();
+    // 103 rows, stride 1, label row after each window: 3 windows.
+    assert_eq!(prepared.windows().len(), 3);
+    let first = prepared.window(0).unwrap();
+    // Feature 0 is raw column 1 (the index column is skipped); label is row 100's (100 % 3 + 1 = 2 -> class 1).
+    assert_eq!(first.tensor.data()[0], 0.0);
+    assert_eq!(first.tensor.data()[40], 1000.0 / (1.0 + 1e-8_f32));
+    assert_eq!(first.label, 1);
+    assert_eq!(prepared.window(2).unwrap().label, 0); // row 102: 102 % 3 + 1 = 1 -> class 0 (Up)
+    std::fs::remove_dir_all(&dir).unwrap();
+}

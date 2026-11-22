@@ -14,13 +14,21 @@ anyhow = "1.0"
 csv = "1.4"
 clap = { version = "4.5", features = ["derive"] }
 npyz = "0.9"
-ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "tracing", "download-binaries", "tls-native", "api-31"] }
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "tracing", "api-31"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
 toml = "0.9"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[features]
+default = ["ort-bundled"]
+# Statically link the ONNX Runtime binary that the `ort` crate downloads at build time.
+ort-bundled = ["ort/download-binaries", "ort/tls-native"]
+# Load ONNX Runtime at run time from ORT_DYLIB_PATH (e.g. Microsoft's official build),
+# so the same Rust code can be benchmarked against different ONNX Runtime binaries.
+ort-dynamic = ["ort/load-dynamic"]
 
 [profile.release]
 opt-level = 3

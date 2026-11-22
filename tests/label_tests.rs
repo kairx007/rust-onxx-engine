@@ -23,9 +23,10 @@ fn encodes_and_decodes_fi2010_labels() {
         encode_label("3.0", &path.path().join("x.csv"), 6).unwrap(),
         2
     );
-    assert_eq!(decode_label(0), Some("Down"));
+    // FI-2010: 1 = Up, 2 = Stationary, 3 = Down -> classes 0, 1, 2.
+    assert_eq!(decode_label(0), Some("Up"));
     assert_eq!(decode_label(1), Some("Stationary"));
-    assert_eq!(decode_label(2), Some("Up"));
+    assert_eq!(decode_label(2), Some("Down"));
 }
 
 #[test]

@@ -13,6 +13,9 @@ pub struct LatencyStatistics {
     pub p90_ms: f64,
     pub p95_ms: f64,
     pub p99_ms: f64,
+    /// Nearest-rank P99.9. Defaults to 0 when reading reports written before it existed.
+    #[serde(default)]
+    pub p999_ms: f64,
 }
 
 pub fn calculate_latency_statistics(samples_ms: &[f64]) -> Option<LatencyStatistics> {
@@ -41,6 +44,7 @@ pub fn calculate_latency_statistics(samples_ms: &[f64]) -> Option<LatencyStatist
         p90_ms: percentile(&sorted, 0.90),
         p95_ms: percentile(&sorted, 0.95),
         p99_ms: percentile(&sorted, 0.99),
+        p999_ms: percentile(&sorted, 0.999),
     })
 }
 

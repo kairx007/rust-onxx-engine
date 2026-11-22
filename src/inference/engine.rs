@@ -33,6 +33,15 @@ impl DeepLobEngine {
     }
 
     pub fn predict(&mut self, input_tensor: &InputTensor) -> Result<Prediction, AppError> {
+        self.predict_timed(input_tensor)
+            .map(|(prediction, _)| prediction)
+    }
+
+    /// Like [`Self::predict`], also returning the time spent in `Session::run` alone.
+    pub fn predict_timed(
+        &mut self,
+        input_tensor: &InputTensor,
+    ) -> Result<(Prediction, std::time::Duration), AppError> {
         let ort_input = input::adapt(input_tensor)?;
         runner::predict(
             &mut self.session,

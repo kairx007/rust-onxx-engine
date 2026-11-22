@@ -2,6 +2,7 @@ use std::path::Path;
 
 use crate::{config::DataSettings, error::AppError};
 
+/// Maps FI-2010 labels 1 (Up), 2 (Stationary), 3 (Down) to class indices 0, 1, 2.
 pub fn encode_label(value: &str, path: &Path, row: usize) -> Result<u8, AppError> {
     let numeric = value.trim().parse::<f64>().ok();
     match numeric {
@@ -18,9 +19,9 @@ pub fn encode_label(value: &str, path: &Path, row: usize) -> Result<u8, AppError
 
 pub fn decode_label(label: u8) -> Option<&'static str> {
     match label {
-        0 => Some("Down"),
+        0 => Some("Up"),
         1 => Some("Stationary"),
-        2 => Some("Up"),
+        2 => Some("Down"),
         _ => None,
     }
 }

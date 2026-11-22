@@ -34,9 +34,20 @@ impl Drop for TempDir {
     }
 }
 
+/// Default settings with the data layout of the synthetic fixtures written by these tests:
+/// no header, features in columns 0-39, label in column 144, non-overlapping windows.
+/// (The shipped default config targets the real FI-2010 CSV layout; see config_tests.rs.)
 pub fn default_settings() -> Settings {
-    Settings::parse(include_str!("../../configs/default.toml"))
-        .expect("default settings should be valid")
+    let mut settings = Settings::parse(include_str!("../../configs/default.toml"))
+        .expect("default settings should be valid");
+    settings.data.feature_columns = (0..40).collect();
+    settings.data.label_column = 144;
+    settings.data.has_headers = false;
+    settings.preprocessing.stride = 100;
+    settings
+        .validate()
+        .expect("synthetic fixture settings should be valid");
+    settings
 }
 
 pub fn write_csv_segment(path: &std::path::Path, rows: usize, label: u8) {

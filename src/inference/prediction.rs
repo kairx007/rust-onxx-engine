@@ -1,18 +1,23 @@
 use crate::error::AppError;
 
+/// Mid-price direction for a class index.
+///
+/// FI-2010 labels are 1 = Up, 2 = Stationary, 3 = Down (verified against mid-price
+/// moves in the raw data, see `bench/data_checks.py`); the loader maps them to 0/1/2,
+/// so class 0 = Up and class 2 = Down.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
-    Down,
-    Stationary,
     Up,
+    Stationary,
+    Down,
 }
 
 impl Direction {
     pub fn from_class_index(index: usize) -> Result<Self, AppError> {
         match index {
-            0 => Ok(Self::Down),
+            0 => Ok(Self::Up),
             1 => Ok(Self::Stationary),
-            2 => Ok(Self::Up),
+            2 => Ok(Self::Down),
             other => Err(AppError::Prediction(format!(
                 "class index {other} is outside the three-class range"
             ))),
@@ -21,9 +26,9 @@ impl Direction {
 
     pub fn class_index(self) -> usize {
         match self {
-            Self::Down => 0,
+            Self::Up => 0,
             Self::Stationary => 1,
-            Self::Up => 2,
+            Self::Down => 2,
         }
     }
 }
@@ -80,9 +85,9 @@ mod tests {
     #[test]
     fn maps_argmax_scores_to_the_three_directions() {
         for (scores, expected) in [
-            ([0.9, 0.1, 0.2], Direction::Down),
+            ([0.9, 0.1, 0.2], Direction::Up),
             ([0.1, 0.9, 0.2], Direction::Stationary),
-            ([0.1, 0.2, 0.9], Direction::Up),
+            ([0.1, 0.2, 0.9], Direction::Down),
         ] {
             assert_eq!(
                 Prediction::from_scores(scores).unwrap().direction(),

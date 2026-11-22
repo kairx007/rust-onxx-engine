@@ -20,6 +20,11 @@ pub struct BenchmarkTrial {
     pub statistics: Option<LatencyStatistics>,
     #[serde(default)]
     pub preprocessing_stages: Option<PreprocessingStageMetrics>,
+    /// Inference mode only: time inside `Session::run` for each call, aligned with `samples_ms`.
+    #[serde(default)]
+    pub session_run_samples_ms: Option<Vec<f64>>,
+    #[serde(default)]
+    pub session_run_statistics: Option<LatencyStatistics>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -57,6 +62,21 @@ pub struct BenchmarkMetadata {
     pub memory: Option<super::ResourceMetrics>,
     pub cpu_utilization_percent: Option<f64>,
     pub cpu_peak_percent: Option<f64>,
+    /// Effective ONNX Runtime session options (threads, graph optimization, spinning).
+    #[serde(default)]
+    pub session_options: String,
+    /// Build string reported by the linked ONNX Runtime library (`OrtApi::GetBuildInfoString`).
+    #[serde(default)]
+    pub runtime_build_info: Option<String>,
+    /// How inference-mode inputs are chosen: `first` (one tensor reused) or `cycle` (all windows in order).
+    #[serde(default)]
+    pub input_policy: String,
+    /// Distinct input windows fed during measurement.
+    #[serde(default)]
+    pub windows_used: usize,
+    /// OS load average when the report was written, if available.
+    #[serde(default)]
+    pub load_average: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -109,6 +129,7 @@ impl BenchmarkReport {
                 "trial",
                 "sample",
                 "latency_ms",
+                "session_run_ms",
                 "elapsed_seconds",
                 "completed_windows",
                 "throughput_per_second",
@@ -159,6 +180,11 @@ impl BenchmarkReport {
                         trial_index.to_string(),
                         sample_index.to_string(),
                         sample.to_string(),
+                        trial
+                            .session_run_samples_ms
+                            .as_ref()
+                            .and_then(|samples| samples.get(sample_index))
+                            .map_or_else(String::new, |v| v.to_string()),
                         trial.elapsed_seconds.to_string(),
                         trial.completed_windows.to_string(),
                         trial
@@ -317,12 +343,19 @@ mod tests {
                 memory: None,
                 cpu_utilization_percent: None,
                 cpu_peak_percent: None,
+                session_options: "defaults".to_owned(),
+                runtime_build_info: None,
+                input_policy: "first".to_owned(),
+                windows_used: 1,
+                load_average: None,
             },
             trials: vec![BenchmarkTrial {
                 elapsed_seconds: 0.006,
                 completed_windows: 3,
                 throughput_per_second: Some(500.0),
                 statistics: calculate_latency_statistics(&samples),
+                session_run_samples_ms: Some(samples.clone()),
+                session_run_statistics: calculate_latency_statistics(&samples),
                 samples_ms: samples,
                 preprocessing_stages: None,
             }],

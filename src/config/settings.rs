@@ -32,6 +32,22 @@ pub struct ApplicationSettings {
 #[serde(deny_unknown_fields)]
 pub struct RuntimeSettings {
     pub execution_provider: String,
+    /// ONNX Runtime intra-op thread count; omitted means the ONNX Runtime default.
+    #[serde(default)]
+    pub intra_op_threads: Option<usize>,
+    /// ONNX Runtime inter-op thread count; omitted means the ONNX Runtime default.
+    #[serde(default)]
+    pub inter_op_threads: Option<usize>,
+    /// One of disable, level1, level2, level3, all; omitted means the ONNX Runtime default.
+    #[serde(default)]
+    pub graph_optimization: Option<String>,
+    /// Whether intra-op threads may spin before blocking; omitted means the ONNX Runtime default.
+    #[serde(default)]
+    pub intra_op_spinning: Option<bool>,
+    /// `cpu` (default, all nodes on the CPU provider) or `auto-efficiency` (the `ort`
+    /// crate's implicit MaxEfficiency policy, which may offload to CoreML on macOS).
+    #[serde(default)]
+    pub device_policy: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -158,6 +174,13 @@ impl Settings {
                 self.runtime.execution_provider.clone(),
             ));
         }
+        if self.runtime.intra_op_threads == Some(0) || self.runtime.inter_op_threads == Some(0) {
+            return Err(AppError::ConfigValidation(
+                "runtime thread counts must be at least 1; omit them to use ONNX Runtime defaults"
+                    .to_owned(),
+            ));
+        }
+        crate::runtime::SessionOptions::from_settings(&self.runtime)?;
         if self.models.deeplob_path.as_os_str().is_empty()
             || self.models.transformerlob_path.as_os_str().is_empty()
         {
@@ -229,9 +252,14 @@ impl Settings {
                 "data.segment_paths must not contain empty paths".to_owned(),
             ));
         }
-        if self.preprocessing.sequence_length != 100 || self.preprocessing.stride != 100 {
+        if self.preprocessing.sequence_length != 100 {
             return Err(AppError::ConfigValidation(
-                "Phase 2 requires sequence_length and stride to both equal 100".to_owned(),
+                "preprocessing.sequence_length must be 100 (model input contract)".to_owned(),
+            ));
+        }
+        if self.preprocessing.stride == 0 {
+            return Err(AppError::ConfigValidation(
+                "preprocessing.stride must be at least 1".to_owned(),
             ));
         }
         if !self.preprocessing.epsilon.is_finite() || self.preprocessing.epsilon != 1e-8_f32 {

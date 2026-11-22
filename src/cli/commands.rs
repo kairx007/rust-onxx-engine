@@ -21,6 +21,22 @@ impl Cli {
         if let Some(level) = &self.log_level {
             settings.logging.level = level.clone();
         }
+        if let Some(threads) = self.intra_threads {
+            settings.runtime.intra_op_threads = Some(threads);
+        }
+        if let Some(threads) = self.inter_threads {
+            settings.runtime.inter_op_threads = Some(threads);
+        }
+        if let Some(level) = &self.graph_opt {
+            settings.runtime.graph_optimization = Some(level.clone());
+        }
+        if let Some(spinning) = self.intra_spinning {
+            settings.runtime.intra_op_spinning = Some(spinning);
+        }
+        if let Some(policy) = &self.device_policy {
+            settings.runtime.device_policy = Some(policy.clone());
+        }
+        settings.validate()?;
         logging::init(&settings.logging.level)?;
 
         match self.command {
@@ -94,6 +110,7 @@ impl Cli {
                 warmup,
                 trials,
                 mode,
+                input_policy,
                 profile_memory,
                 profile_cpu,
                 output,
@@ -135,6 +152,7 @@ impl Cli {
                         warmup,
                         trial_count: trials,
                         mode,
+                        input_policy,
                         profile_memory,
                         profile_cpu,
                         report,
@@ -144,6 +162,8 @@ impl Cli {
                 println!("Model: {}", summary.model);
                 println!("Mode: {:?}", mode);
                 println!("Execution Provider: CPU");
+                println!("Input policy: {}", input_policy.as_str());
+                println!("Windows used: {}", summary.windows_used);
                 println!("Input: {}", summary.input);
                 println!("Windows available: {}", summary.windows_available);
                 println!("Iterations: {}", summary.iterations);
@@ -171,10 +191,16 @@ impl Cli {
                     println!("Mean latency: {:.6}ms", stats.mean_ms);
                     println!("Std deviation: {:.6}ms", stats.standard_deviation_ms);
                     println!(
-                        "P50/P90/P95/P99: {:.6}/{:.6}/{:.6}/{:.6}ms",
-                        stats.p50_ms, stats.p90_ms, stats.p95_ms, stats.p99_ms
+                        "P50/P90/P95/P99/P99.9: {:.6}/{:.6}/{:.6}/{:.6}/{:.6}ms",
+                        stats.p50_ms, stats.p90_ms, stats.p95_ms, stats.p99_ms, stats.p999_ms
                     );
                     println!("Min/Max: {:.6}/{:.6}ms", stats.minimum_ms, stats.maximum_ms);
+                }
+                if let Some(stats) = &summary.session_run_aggregate {
+                    println!(
+                        "Session::run only, mean/P50/P99: {:.6}/{:.6}/{:.6}ms",
+                        stats.mean_ms, stats.p50_ms, stats.p99_ms
+                    );
                 }
                 if let Some(resources) = &summary.resource_metrics {
                     println!(
@@ -205,6 +231,15 @@ impl Cli {
                 if let Some(path) = &summary.report_path {
                     println!("Report: {}", path.display());
                 }
+                Ok(())
+            }
+            Command::ExportWindows { input, output_dir } => {
+                let settings = apply_input_args(settings, &input)?;
+                let summary = crate::application::export_windows(&settings, &output_dir)?;
+                println!("Exported {} windows", summary.windows);
+                println!("Tensors: {}", summary.windows_path.display());
+                println!("Labels: {}", summary.labels_path.display());
+                println!("Manifest: {}", summary.manifest_path.display());
                 Ok(())
             }
             Command::Compare {
@@ -288,7 +323,8 @@ fn show_runtime_info(settings: &Settings) -> Result<()> {
     println!("ONNX Runtime: initialized");
     println!("ONNX Runtime API target: 1.{}", summary.ort_api_target);
     println!("Execution Provider: {}", summary.execution_provider);
-    println!("Runtime configuration: CPU provider (thread counts use ONNX Runtime defaults)");
+    println!("ONNX Runtime build: {}", summary.runtime_build_info);
+    println!("Session options: {}", summary.session_options);
     for model in summary.models {
         println!(
             "{}: configured at {} (file {})",
@@ -367,7 +403,7 @@ fn print_prediction(prediction: &Prediction) {
     println!("  Direction: {:?}", prediction.direction());
     let scores = prediction.scores();
     println!(
-        "  Scores: Down={} Stationary={} Up={}",
+        "  Scores: Up={} Stationary={} Down={}",
         scores[0], scores[1], scores[2]
     );
 }

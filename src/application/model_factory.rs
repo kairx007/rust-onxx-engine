@@ -22,6 +22,17 @@ impl LoadedModel {
             Self::TransformerLob(engine) => engine.predict(input),
         }
     }
+
+    /// Predicts and also returns the time spent inside `Session::run` alone.
+    pub fn predict_timed(
+        &mut self,
+        input: &InputTensor,
+    ) -> Result<(Prediction, std::time::Duration), AppError> {
+        match self {
+            Self::DeepLob(engine) => engine.predict_timed(input),
+            Self::TransformerLob(engine) => engine.predict_timed(input),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]

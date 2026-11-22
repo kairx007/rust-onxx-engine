@@ -18,15 +18,16 @@ impl InputTensor {
             .start_row
             .checked_add(100)
             .ok_or_else(|| AppError::WindowReference("window row offset overflow".to_owned()))?;
-        if end_row > segment.rows() {
+        // Rows start..end_row are the window; row end_row holds its label (the tick after it).
+        if end_row >= segment.rows() {
             return Err(AppError::WindowReference(format!(
-                "window rows {}..{} exceed segment with {} rows",
+                "window rows {}..{} plus label row {end_row} exceed segment with {} rows",
                 window.start_row,
                 end_row,
                 segment.rows()
             )));
         }
-        let label_row = end_row - 1;
+        let label_row = end_row;
         if segment.labels()[label_row] != window.label {
             return Err(AppError::WindowReference(format!(
                 "window label {} does not match segment label {} at row {label_row}",

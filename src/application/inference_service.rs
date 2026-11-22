@@ -9,7 +9,7 @@ use crate::{
         ReportFormat, ResourceMetrics, ResourceSampler, calculate_latency_statistics,
         calculate_throughput,
     },
-    cli::BenchmarkMode,
+    cli::{BenchmarkMode, InputPolicy},
     config::Settings,
     data::{FEATURE_COUNT, LobSegment},
     error::AppError,
@@ -54,8 +54,10 @@ pub struct BenchmarkSummary {
     pub average_latency: Duration,
     pub throughput_per_second: f64,
     pub warmup_iterations: usize,
+    pub windows_used: usize,
     pub trials: Vec<BenchmarkTrial>,
     pub aggregate: Option<crate::benchmark::LatencyStatistics>,
+    pub session_run_aggregate: Option<crate::benchmark::LatencyStatistics>,
     pub resource_metrics: Option<ResourceMetrics>,
     pub report_path: Option<PathBuf>,
 }
@@ -66,6 +68,7 @@ pub struct BenchmarkOptions<'a> {
     pub warmup: usize,
     pub trial_count: usize,
     pub mode: BenchmarkMode,
+    pub input_policy: InputPolicy,
     pub profile_memory: bool,
     pub profile_cpu: bool,
     pub report: Option<(&'a Path, ReportFormat)>,
@@ -79,13 +82,13 @@ pub fn run_prediction(
     overwrite: bool,
 ) -> Result<PredictionSummary, AppError> {
     let input = effective_input_description(settings);
-    let runtime = Runtime::initialize(&settings.runtime.execution_provider)?;
+    let runtime = Runtime::from_settings(&settings.runtime)?;
     let mut model = ModelFactory.load(&runtime, settings, model_type, model_path_override)?;
     let pipeline = PreprocessingPipeline::new(settings)?;
     let prepared = pipeline.prepare()?;
     if prepared.windows().is_empty() {
         return Err(AppError::ConfigValidation(
-            "input dataset produced no complete 100-row windows".to_owned(),
+            "input dataset produced no complete windows (100 rows plus a label row)".to_owned(),
         ));
     }
 
@@ -114,14 +117,14 @@ pub fn run_smoke_test(
     model_path_override: Option<&Path>,
     use_dataset_input: bool,
 ) -> Result<SmokeTestResult, AppError> {
-    let runtime = Runtime::initialize(&settings.runtime.execution_provider)?;
+    let runtime = Runtime::from_settings(&settings.runtime)?;
     let mut model = ModelFactory.load(&runtime, settings, model_type, model_path_override)?;
     let (input, synthetic_input) = if use_dataset_input {
         let pipeline = PreprocessingPipeline::new(settings)?;
         let prepared = pipeline.prepare()?;
         if prepared.windows().is_empty() {
             return Err(AppError::ConfigValidation(
-                "input dataset produced no complete 100-row windows".to_owned(),
+                "input dataset produced no complete windows (100 rows plus a label row)".to_owned(),
             ));
         }
         (prepared.window(0)?.tensor, false)
@@ -161,7 +164,7 @@ pub fn run_benchmark(
     let runtime = if options.mode == BenchmarkMode::Preprocessing {
         None
     } else {
-        Some(Runtime::initialize(&settings.runtime.execution_provider)?)
+        Some(Runtime::from_settings(&settings.runtime)?)
     };
     let runtime_init_time = runtime_start.elapsed();
     let load_start = Instant::now();
@@ -178,6 +181,8 @@ pub fn run_benchmark(
     let mut windows_available = 0;
     let mut trials = Vec::with_capacity(options.trial_count);
     let mut all_samples = Vec::new();
+    let mut all_run_samples = Vec::new();
+    let mut windows_used = 0;
 
     if options.mode == BenchmarkMode::Inference {
         let prepared = pipeline
@@ -188,22 +193,35 @@ pub fn run_benchmark(
         if windows_available == 0 {
             return Err(no_windows_error());
         }
-        let input = prepared.window(0)?.tensor;
+        // All input tensors are built before timing so tensor construction is excluded.
+        let inputs = match options.input_policy {
+            InputPolicy::First => vec![prepared.window(0)?.tensor],
+            InputPolicy::Cycle => (0..windows_available)
+                .map(|index| prepared.window(index).map(|window| window.tensor))
+                .collect::<Result<Vec<_>, _>>()?,
+        };
+        windows_used = inputs.len();
         let model = model.as_mut().expect("inference mode loads model");
-        for _ in 0..options.warmup {
-            let _ = model.predict(&input)?;
+        for call in 0..options.warmup {
+            let _ = model.predict(&inputs[call % inputs.len()])?;
         }
+        let mut call_index = 0;
         for _ in 0..options.trial_count {
             let start = Instant::now();
             let mut samples = Vec::with_capacity(iterations);
+            let mut run_samples = Vec::with_capacity(iterations);
             for _ in 0..iterations {
+                let input = &inputs[call_index % inputs.len()];
+                call_index += 1;
                 let call_start = Instant::now();
-                let _prediction = model.predict(&input)?;
+                let (_prediction, run_time) = model.predict_timed(input)?;
                 samples.push(call_start.elapsed().as_secs_f64() * 1_000.0);
+                run_samples.push(run_time.as_secs_f64() * 1_000.0);
             }
             let elapsed = start.elapsed().as_secs_f64();
             let stats = calculate_latency_statistics(&samples);
             all_samples.extend(samples.iter().copied());
+            all_run_samples.extend(run_samples.iter().copied());
             trials.push(BenchmarkTrial {
                 elapsed_seconds: elapsed,
                 completed_windows: iterations,
@@ -211,6 +229,8 @@ pub fn run_benchmark(
                 samples_ms: samples,
                 statistics: stats,
                 preprocessing_stages: None,
+                session_run_statistics: calculate_latency_statistics(&run_samples),
+                session_run_samples_ms: Some(run_samples),
             });
         }
     } else if options.mode == BenchmarkMode::Preprocessing {
@@ -253,6 +273,8 @@ pub fn run_benchmark(
                     window_generation_ms: stage_times.window_generation.as_secs_f64() * 1_000.0,
                     tensor_construction_ms: tensor_construction.as_secs_f64() * 1_000.0,
                 }),
+                session_run_samples_ms: None,
+                session_run_statistics: None,
             });
         }
     } else if options.mode == BenchmarkMode::EndToEnd {
@@ -306,6 +328,8 @@ pub fn run_benchmark(
                     window_generation_ms: stage_times.window_generation.as_secs_f64() * 1_000.0,
                     tensor_construction_ms: tensor_construction.as_secs_f64() * 1_000.0,
                 }),
+                session_run_samples_ms: None,
+                session_run_statistics: None,
             });
         }
     } else {
@@ -324,12 +348,25 @@ pub fn run_benchmark(
                 samples_ms: vec![sample],
                 statistics: calculate_latency_statistics(&[sample]),
                 preprocessing_stages: None,
+                session_run_samples_ms: None,
+                session_run_statistics: None,
             });
         }
     }
 
     let resource_metrics = sampler.map(ResourceSampler::finish);
     let aggregate = calculate_latency_statistics(&all_samples);
+    let session_run_aggregate = calculate_latency_statistics(&all_run_samples);
+    let session_options = runtime.as_ref().map_or_else(
+        || {
+            crate::runtime::SessionOptions::from_settings(&settings.runtime)
+                .map(|options| options.describe())
+        },
+        |runtime| Ok(runtime.session_options().describe()),
+    )?;
+    let runtime_build_info = runtime
+        .as_ref()
+        .map(|runtime| runtime.build_info().to_owned());
     let elapsed_seconds = trials
         .iter()
         .map(|trial| trial.elapsed_seconds)
@@ -370,7 +407,7 @@ pub fn run_benchmark(
                 },
                 measured_iterations,
                 trial_count: options.trial_count,
-                runtime_version: "ONNX Runtime 1.31; ort crate 2.0.0-rc.15".to_owned(),
+                runtime_version: RUNTIME_VERSION.to_owned(),
                 rust_version: command_version("rustc", &["--version"]),
                 build_mode: if cfg!(debug_assertions) {
                     "debug"
@@ -381,8 +418,7 @@ pub fn run_benchmark(
                 operating_system: format!("{} {}", std::env::consts::OS, std::env::consts::ARCH),
                 cpu: cpu_description(),
                 ram_bytes: ram_bytes(),
-                thread_configuration: "ONNX Runtime defaults; custom thread counts are not exposed"
-                    .to_owned(),
+                thread_configuration: session_options.clone(),
                 git_commit: command_version("git", &["rev-parse", "--short", "HEAD"]),
                 timestamp_unix_seconds: now,
                 cpu_utilization_percent: resource_metrics
@@ -392,6 +428,19 @@ pub fn run_benchmark(
                     .as_ref()
                     .and_then(|metrics| metrics.peak_cpu_percent),
                 memory: resource_metrics.clone(),
+                session_options: session_options.clone(),
+                runtime_build_info: runtime_build_info.clone(),
+                input_policy: if options.mode == BenchmarkMode::Inference {
+                    options.input_policy.as_str().to_owned()
+                } else {
+                    "all-windows".to_owned()
+                },
+                windows_used: if options.mode == BenchmarkMode::Inference {
+                    windows_used
+                } else {
+                    windows_available
+                },
+                load_average: load_average(),
             };
             BenchmarkReport {
                 metadata,
@@ -413,15 +462,37 @@ pub fn run_benchmark(
         average_latency,
         throughput_per_second,
         warmup_iterations: options.warmup,
+        windows_used,
         trials,
         aggregate,
+        session_run_aggregate,
         resource_metrics,
         report_path,
     })
 }
 
+/// ONNX Runtime binding identification recorded in reports. The `ort` crate
+/// version is pinned in Cargo.toml; `runtime_build_info` carries the build
+/// string reported by the linked library itself.
+#[cfg(not(feature = "ort-dynamic"))]
+pub const RUNTIME_VERSION: &str =
+    "ort 2.0.0-rc.15 (ONNX Runtime C API 1.31, bundled download-binaries)";
+#[cfg(feature = "ort-dynamic")]
+pub const RUNTIME_VERSION: &str =
+    "ort 2.0.0-rc.15 (ONNX Runtime C API 1.31, loaded from ORT_DYLIB_PATH)";
+
+fn load_average() -> Option<String> {
+    command_version("sysctl", &["-n", "vm.loadavg"]).or_else(|| {
+        std::fs::read_to_string("/proc/loadavg")
+            .ok()
+            .map(|text| text.trim().to_owned())
+    })
+}
+
 fn no_windows_error() -> AppError {
-    AppError::ConfigValidation("input dataset produced no complete 100-row windows".to_owned())
+    AppError::ConfigValidation(
+        "input dataset produced no complete windows (100 rows plus a label row)".to_owned(),
+    )
 }
 
 fn benchmark_mode_name(mode: BenchmarkMode) -> &'static str {
@@ -459,7 +530,7 @@ fn cpu_description() -> Option<String> {
     })
 }
 
-fn file_fingerprint(path: &Path) -> Option<String> {
+pub(crate) fn file_fingerprint(path: &Path) -> Option<String> {
     use std::io::Read;
     let mut file = std::fs::File::open(path).ok()?;
     let mut hash = 0xcbf29ce484222325_u64;
@@ -523,8 +594,9 @@ fn effective_input_description(settings: &Settings) -> String {
 }
 
 fn synthetic_input_tensor() -> Result<InputTensor, AppError> {
-    let features = vec![0.0; 100 * FEATURE_COUNT];
-    let labels = vec![0; 100];
+    // 100 window rows plus the label row that follows them.
+    let features = vec![0.0; 101 * FEATURE_COUNT];
+    let labels = vec![0; 101];
     let segment = LobSegment::new("<synthetic smoke-test input>", features, labels)?;
     InputTensor::from_window(
         &segment,
@@ -564,6 +636,7 @@ mod tests {
                     warmup: 20,
                     trial_count: 1,
                     mode: BenchmarkMode::Inference,
+                    input_policy: crate::cli::InputPolicy::First,
                     profile_memory: false,
                     profile_cpu: false,
                     report: None,

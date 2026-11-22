@@ -11,16 +11,25 @@ pub struct WindowConfig {
 
 impl WindowConfig {
     pub fn validate(self) -> Result<Self, AppError> {
-        if self.sequence_length != 100 || self.stride != 100 {
+        if self.sequence_length != 100 {
             return Err(AppError::WindowConfiguration(
-                "Phase 2 requires sequence length and non-overlapping stride to both equal 100"
-                    .to_owned(),
+                "the model input contract requires a sequence length of 100".to_owned(),
+            ));
+        }
+        if self.stride == 0 {
+            return Err(AppError::WindowConfiguration(
+                "window stride must be at least 1".to_owned(),
             ));
         }
         Ok(self)
     }
 }
 
+/// A window of `sequence_length` consecutive rows starting at `start_row`.
+///
+/// `label` is the label of row `start_row + sequence_length`, the tick immediately
+/// after the window. This is the training convention (`cpp-engine/src/dataset.py`,
+/// `__getitem__`) and the one the C++ `full_inference` engine evaluates with.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WindowRef {
     pub segment_index: usize,
@@ -37,8 +46,9 @@ impl WindowExtractor {
         let mut windows = Vec::new();
         for (segment_index, segment) in dataset.segments().iter().enumerate() {
             let mut start_row = 0;
-            while start_row + config.sequence_length <= segment.rows() {
-                let label_row = start_row + config.sequence_length - 1;
+            // The label row (the tick after the window) must exist inside the segment.
+            while start_row + config.sequence_length < segment.rows() {
+                let label_row = start_row + config.sequence_length;
                 let label = *segment.labels().get(label_row).ok_or_else(|| {
                     AppError::WindowReference(format!(
                         "label row {label_row} is missing in segment {}",

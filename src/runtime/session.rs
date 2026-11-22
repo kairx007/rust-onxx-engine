@@ -45,6 +45,7 @@ impl ModelSession {
         }
 
         let session = Session::builder(runtime.environment())
+            .and_then(|builder| runtime.session_options().apply(builder))
             .and_then(|mut builder| builder.commit_from_file(path))
             .map_err(|source| AppError::ModelLoad {
                 model,
